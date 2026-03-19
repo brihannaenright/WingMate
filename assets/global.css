@@ -1,3 +1,32 @@
-background{
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+body{
     background-color: #FFFFFF;
+}
+
+button{
+    /** Global Button Font Styling*/
+    color: #FFF;
+    font-family: "Inter", sans-serif;
+    font-size: 14px;
+    font-style: normal;
+    font-weight: 300;
+    line-height: 24px;
+    letter-spacing: 0.1px;
+
+    border-radius: 15px;
+    border-color: #C30E59;
+    width: 130px;
+    height: 45px;
+    background: #C30E59;
+}
+
+p{
+    color: #000;
+    font-family: "Inter", sans-serif;
+    font-size: 24px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 24px;
+    letter-spacing: 0.1px;
 }
