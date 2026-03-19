@@ -14,8 +14,18 @@ Extras to remember:
 // PHP code for handling user registeration/form submission here
 ?>
 
-<?php include '../../includes/auth-header.php'; ?>
+<?php include __DIR__ . '/../../includes/auth-header.php';; ?>
 <link rel="stylesheet" href="register.css">
 <h1>Register</h1>
+<div class="register-display">
+    <div class="left-logo">
 
-<?php include '../../includes/footer.php'; ?>
+    </div>
+    <div class="right-form">
+        <div class="form">
+
+        </div>
+    </div>
+</div>
+
+<?php include __DIR__ . '/../../includes/footer.php'; ?>
