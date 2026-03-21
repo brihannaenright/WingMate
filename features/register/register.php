@@ -11,7 +11,12 @@ Extras to remember:
 -->
 
 <?php
-// PHP code for handling user registeration/form submission here
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    require_once __DIR__ . '/../../config/config.php';
+
+    $conn->close();
+}
 ?>
 
 <?php include __DIR__ . '/../../includes/auth-header.php';; ?>
