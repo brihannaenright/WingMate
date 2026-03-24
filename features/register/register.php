@@ -49,14 +49,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
-        $stmt = $conn->prepare("INSERT INTO Users (email, password_hash, created_at, user_type, account_status, suspended_until) 
-        VALUES (?, ?, NOW(), 'standard', 'active', NULL)");
-        $stmt->bind_param("ss", $email, $hashedPassword);
-        $stmt->execute();
-        if ($stmt->affected_rows === 1) {
-            echo "New record created successfully";
-        } else {
-            echo "Error: Creating user failed: ";
+        $conn->begin_transaction();
+
+        try {
+            $stmt = $conn->prepare("INSERT INTO Users (email, password_hash, created_at, user_type, account_status, suspended_until) 
+            VALUES (?, ?, NOW(), 'standard', 'active', NULL)");
+            $stmt->bind_param("ss", $email, $hashedPassword);
+            $stmt->execute();
+
+            $newUserId = $conn->insert_id;
+
+            $stmt2 = $conn->prepare("UPDATE User_Profile SET first_name = ?, last_name = ?, date_of_birth = ? WHERE user_id = ?");
+            $stmt2->bind_param("sssi", $first_name, $last_name, $age, $newUserId);
+            $stmt2->execute();
+
+            $conn->commit();
+            $registerSuccess = 'Submission Successful.';
+        } catch (Exception $e) {
+            $conn->rollback();
+            $registerError = 'Registration failed. Please try again.';
         }
 
         session_regenerate_id(true);
