@@ -36,6 +36,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $first_name = test_input($_POST['first_name']);
         $last_name = test_input($_POST['last_name']);
         $age = test_input($_POST['dob']);
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $registerError = 'Please enter a valid email address.';
+         }
+
+         if (strlen($password) < 8 ||
+            !preg_match('/[A-Z]/', $password) ||
+            !preg_match('/[a-z]/', $password) ||
+            !preg_match('/[0-9]/', $password) ||
+            !preg_match('/[^A-Za-z0-9]/', $password)) {
+            $registerError = 'Password must be at least 8 characters with an uppercase letter, lowercase letter, number, and special character.';
+        }
+
+        if ($password !== $confirm_password) {
+            $registerError = 'Passwords do not match.';
+        }
+
+       $dob = DateTime::createFromFormat('Y-m-d', $age);
+        if (!$dob) {
+            $registerError = 'Please enter a valid date of birth.';
+        } elseif ($today->diff($dob)->y < 18) {
+            $registerError = 'You must be at least 18 years old to register.';
+        }
+
+        $stmt = $conn->prepare("SELECT user_id FROM Users WHERE email = ?");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $stmt->store_result();
+        if ($stmt->num_rows > 0) {
+            $registerError = 'An account with this email already exists.';
+        }
+        $stmt->close();
+
 
         //Validation needs:
         //1. Email format validation
@@ -47,6 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         //7. Hash password before storing in database
         //8. Provide user feedback on validation errors or successful registration
 
+        if ($registerError === '') {
         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
         $conn->begin_transaction();
@@ -69,9 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn->rollback();
             $registerError = 'Registration failed. Please try again.';
         }
-
-        session_regenerate_id(true);
-        $registerSuccess = 'Submission Successful.';
+        }
     }
 }
 
