@@ -1,15 +1,3 @@
-<!--Requirements
-1. Passwords not stored in plain text (Password hashing)
-2. Secure session handling
-3. Input validation and sanitization
-4. Protection against basic SQL Injection
-5. No hard-coded credentials 
-
-Extras to remember:
-1. Check to ensure user is over 18
-2. Regexes to validate email and password formats
--->
-
 <?php
 require_once __DIR__ . '/../../includes/session.php';
 require_once __DIR__ . '/../../config/config.php';
@@ -24,6 +12,19 @@ $confirm_password = '';
 $first_name = '';
 $last_name = '';
 $age = '';
+
+if (isset($_SESSION['register_error'])) {
+    $registerError = (string) $_SESSION['register_error'];
+    unset($_SESSION['register_error']);
+}
+
+if (isset($_SESSION['register_form']) && is_array($_SESSION['register_form'])) {
+    $email = (string) ($_SESSION['register_form']['email'] ?? '');
+    $first_name = (string) ($_SESSION['register_form']['first_name'] ?? '');
+    $last_name = (string) ($_SESSION['register_form']['last_name'] ?? '');
+    $age = (string) ($_SESSION['register_form']['dob'] ?? '');
+    unset($_SESSION['register_form']);
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!wingmate_validate_csrf_token($_POST['csrf_token'] ?? null)) {
@@ -44,7 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             !preg_match('/[A-Z]/', $password) ||
             !preg_match('/[a-z]/', $password) ||
             !preg_match('/[0-9]/', $password) ||
-            !preg_match('/[^A-Za-z0-9]/', $password)) {
+            !preg_match('/[!@#$%^&*()_\-+=\[\]{};:,.<>?\/\\\\|~`]/', $password) ||
+            preg_match('/\s/', $password)) {
             $registerError = 'Password must be at least 8 characters with an uppercase letter, lowercase letter, number, and special character.';
         }
 
@@ -52,13 +54,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $registerError = 'Passwords do not match.';
         }
 
-       $dob = DateTime::createFromFormat('Y-m-d', $age);
+        $today = new DateTime('today');
+        $dob = DateTime::createFromFormat('Y-m-d', $age);
         if (!$dob) {
             $registerError = 'Please enter a valid date of birth.';
+        } elseif ($dob > $today) {
+            $registerError = 'Date of birth cannot be in the future.';
         } elseif ($today->diff($dob)->y < 18) {
             $registerError = 'You must be at least 18 years old to register.';
+        } elseif ($today->diff($dob)->y > 100) {
+            $registerError = 'Please enter a realistic date of birth.';
         }
 
+        try{
         $stmt = $conn->prepare("SELECT user_id FROM Users WHERE email = ?");
         $stmt->bind_param("s", $email);
         $stmt->execute();
@@ -67,17 +75,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $registerError = 'An account with this email already exists.';
         }
         $stmt->close();
-
-
-        //Validation needs:
-        //1. Email format validation
-        //2. Password strength validation (length, character types)
-        //3. Password confirmation match
-        //4. Age verification (over 18)
-        //5. Check if email already exists in database
-        //6. Sanitize all inputs to prevent XSS and SQL Injection
-        //7. Hash password before storing in database
-        //8. Provide user feedback on validation errors or successful registration
+        } catch (Exception $e) {
+            $registerError = 'An error occurred while checking for existing email. Please try again.';
+        }
 
         if ($registerError === '') {
         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
@@ -89,19 +89,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             VALUES (?, ?, NOW(), 'standard', 'active', NULL)");
             $stmt->bind_param("ss", $email, $hashedPassword);
             $stmt->execute();
+            $stmt->close();
 
             $newUserId = $conn->insert_id;
 
             $stmt2 = $conn->prepare("UPDATE User_Profile SET first_name = ?, last_name = ?, date_of_birth = ? WHERE user_id = ?");
             $stmt2->bind_param("sssi", $first_name, $last_name, $age, $newUserId);
             $stmt2->execute();
+            $stmt2->close();
 
             $conn->commit();
-            $registerSuccess = 'Submission Successful.';
+            session_regenerate_id(true);
+            $_SESSION['user_id'] = $newUserId;
+            header('Location: /features/profile/profile.php');
+            exit;
         } catch (Exception $e) {
             $conn->rollback();
             $registerError = 'Registration failed. Please try again.';
         }
+        }
+
+        if ($registerError !== '') {
+            $_SESSION['register_error'] = $registerError;
+            $_SESSION['register_form'] = [
+                'email' => $email,
+                'first_name' => $first_name,
+                'last_name' => $last_name,
+                'dob' => $age,
+            ];
+            header('Location: /features/register/register.php');
+            exit;
         }
     }
 }
@@ -137,7 +154,7 @@ function test_input($data) {
                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                     <div class="input-field">
                         <img src="/assets/images/mail-icon.svg" alt="" class="input-icon">
-                        <input type="email" name="email" placeholder="Email" required>
+                        <input type="email" name="email" placeholder="Email" value="<?php echo htmlspecialchars($email, ENT_QUOTES, 'UTF-8'); ?>" required>
                     </div>
                     <div class="input-field">
                         <img src="/assets/images/lock-icon.svg" alt="" class="input-icon">
@@ -149,15 +166,15 @@ function test_input($data) {
                     </div>
                     <div class="input-field">
                         <img src="/assets/images/edit-icon.svg" alt="" class="input-icon">
-                        <input type="text" name="first_name" placeholder="First Name" required>
+                        <input type="text" name="first_name" placeholder="First Name" value="<?php echo htmlspecialchars($first_name, ENT_QUOTES, 'UTF-8'); ?>" required>
                     </div>
                     <div class="input-field">
                         <img src="/assets/images/edit-icon.svg" alt="" class="input-icon">
-                        <input type="text" name="last_name" placeholder="Last Name" required>
+                        <input type="text" name="last_name" placeholder="Last Name" value="<?php echo htmlspecialchars($last_name, ENT_QUOTES, 'UTF-8'); ?>" required>
                     </div>
                     <div class="input-field">
                         <img src="/assets/images/calendar-icon.svg" alt="" class="input-icon">
-                        <input type="text" name="dob" placeholder="Date of Birth" onfocus="this.type='date'" onblur="if(!this.value)this.type='text'" required>
+                        <input type="text" name="dob" placeholder="Date of Birth" value="<?php echo htmlspecialchars($age, ENT_QUOTES, 'UTF-8'); ?>" onfocus="this.type='date'" onblur="if(!this.value)this.type='text'" required>
                     </div>
                     <div class="buttons">
                         <button type="button" onclick="window.location.href='/features/login/login.php'">Login</button>
