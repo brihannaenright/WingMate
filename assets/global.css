@@ -1,29 +1,65 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
-body{
-    background-color: #FFFFFF;
+/**
+ * Global CSS variables and styles for the WingMate application.
+ */
+:root {
+    --wm-page-bg: #FFFFFF;
+    --wm-font-family: "Inter", sans-serif;
+    --wm-button-primary: #C30E59;
+    --wm-button-primary-border: #C30E59;
+    --wm-button-secondary: #F2AE66;
+    --wm-button-secondary-border: #F2AE66;
+    --wm-button-text: #FFFFFF;
+    --wm-button-radius: 15px;
+    --wm-button-width: 130px;
+    --wm-button-height: 45px;
 }
 
-button{
-    /** Global Button Font Styling*/
+/** * Global border-box settings.
+ */
+html {
+    box-sizing: border-box;
+}
+
+*, *::before, *::after {
+    box-sizing: inherit;
+}
+
+/* Global styles for body, buttons, and text. */
+body{
+    margin: 0;
+    background-color: var(--wm-page-bg);
+    font-family: var(--wm-font-family);
+}
+
+button,
+.button-primary,
+.button-secondary {
     color: #FFF;
-    font-family: "Inter", sans-serif;
+    font-family: var(--wm-font-family);
     font-size: 14px;
     font-style: normal;
     font-weight: 300;
     line-height: 24px;
     letter-spacing: 0.1px;
 
-    border-radius: 15px;
-    border-color: #C30E59;
-    width: 130px;
-    height: 45px;
-    background: #C30E59;
+    border-radius: var(--wm-button-radius);
+    width: var(--wm-button-width);
+    height: var(--wm-button-height);
+    border: 1px solid var(--wm-button-primary-border);
+    background: var(--wm-button-primary);
+    color: var(--wm-button-text);
+}
+
+.button-secondary{
+    border-color: var(--wm-button-secondary-border);
+    background: var(--wm-button-secondary);
 }
 
 p{
     color: #000;
-    font-family: "Inter", sans-serif;
+    font-family: var(--wm-font-family);
     font-size: 24px;
     font-style: normal;
     font-weight: 700;
