@@ -117,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'last_name' => $last_name,
                 'dob' => $age,
             ];
-            header('Location: /features/register/register.php');
+            header('Location: /features/auth/register.php');
             exit;
         }
     }
@@ -132,58 +132,56 @@ function test_input($data) {
 ?>
 
 <?php include __DIR__ . '/../../includes/auth-header.php';; ?>
-<link rel="stylesheet" href="./register.css">
-<div class="register-display">
-    <div class="left-display">
+<link rel="stylesheet" href="./auth.css">
+<main class="auth-display container-fluid d-flex min-vh-100 px-0">
+    <div class="auth-left-display d-none d-md-flex col-md-6 justify-content-center align-items-center">
         <img src="/assets/images/wingmate-logo.png" alt="WingMate Logo" class="logo-image">
     </div>
-    <div class="right-display">
-        <div class="form">
-            <div class="title-text">
-                <p>Welcome to Wingmate</p>
-                <p2>Enter your personal details below</p2>
-            </div>
+    <div class="auth-right-display d-flex col-12 col-md-6 justify-content-center align-items-center">
+        <div class="auth-form-display">
+            <p>Welcome to Wingmate</p>
+            <p2>Enter your personal details below</p2>
             <?php if ($registerError !== ''): ?>
                 <p class="text-danger"><?php echo htmlspecialchars($registerError, ENT_QUOTES, 'UTF-8'); ?></p>
             <?php endif; ?>
             <?php if ($registerSuccess !== ''): ?>
                 <p class="text-success"><?php echo htmlspecialchars($registerSuccess, ENT_QUOTES, 'UTF-8'); ?></p>
             <?php endif; ?>
-            <div class="input-form">
+            <div class="auth-input-form">
                 <form action="register.php" method="POST">
                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
-                    <div class="input-field">
+                    <div class="auth-input-field">
                         <img src="/assets/images/mail-icon.svg" alt="" class="input-icon">
                         <input type="email" name="email" placeholder="Email" value="<?php echo htmlspecialchars($email, ENT_QUOTES, 'UTF-8'); ?>" required>
                     </div>
-                    <div class="input-field">
+                    <div class="auth-input-field">
                         <img src="/assets/images/lock-icon.svg" alt="" class="input-icon">
                         <input type="password" name="password" placeholder="Password" required>
                     </div>
-                    <div class="input-field">
+                    <div class="auth-input-field">
                         <img src="/assets/images/lock-icon.svg" alt="" class="input-icon">
                         <input type="password" name="confirm_password" placeholder="Confirm Password" required>
                     </div>
-                    <div class="input-field">
+                    <div class="auth-input-field">
                         <img src="/assets/images/edit-icon.svg" alt="" class="input-icon">
                         <input type="text" name="first_name" placeholder="First Name" value="<?php echo htmlspecialchars($first_name, ENT_QUOTES, 'UTF-8'); ?>" required>
                     </div>
-                    <div class="input-field">
+                    <div class="auth-input-field">
                         <img src="/assets/images/edit-icon.svg" alt="" class="input-icon">
                         <input type="text" name="last_name" placeholder="Last Name" value="<?php echo htmlspecialchars($last_name, ENT_QUOTES, 'UTF-8'); ?>" required>
                     </div>
-                    <div class="input-field">
+                    <div class="auth-input-field">
                         <img src="/assets/images/calendar-icon.svg" alt="" class="input-icon">
                         <input type="text" name="dob" placeholder="Date of Birth" value="<?php echo htmlspecialchars($age, ENT_QUOTES, 'UTF-8'); ?>" onfocus="this.type='date'" onblur="if(!this.value)this.type='text'" required>
                     </div>
                     <div class="buttons">
                         <button type="button" onclick="window.location.href='/features/login/login.php'">Login</button>
-                        <button class="register-button" type="submit">Register</button>
+                        <button class="button-secondary" type="submit">Register</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
-</div>
+</main>
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>
