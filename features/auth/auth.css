@@ -35,6 +35,10 @@
     gap: 14px;
 }
 
+.auth-input-group {
+    width: 262px;
+}
+
 .auth-input-field{
     width: 262px;
     height: 45px;
@@ -57,4 +61,45 @@
         border: none;
         outline:none;
     }
+}
+
+.auth-input-field-error {
+    border-color: #C30E59;
+}
+
+.auth-field-error {
+    margin: 6px 0 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #C30E59;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.auth-error-icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #C30E59;
+    color: #FFFFFF;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    flex: 0 0 16px;
+}
+
+.auth-general-error {
+    margin-top: 8px;
+    margin-bottom: 8px;
+    color: #B42318;
+    font-size: 14px;
+}
+
+.auth-success {
+    margin-top: 8px;
+    margin-bottom: 8px;
+    color: #F2AE66;
+    font-size: 14px;
 }
