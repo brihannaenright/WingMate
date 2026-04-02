@@ -10,9 +10,46 @@
     integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
 
     <!-- Global CSS -->
-    <link rel="stylesheet" href="../assets/global.css">
+    <link rel="stylesheet" href="/assets/global.css">
 </head>
 
 <body>
 
-<!-- Navbar will go here -->
+<nav class="navbar navbar-expand-lg navbar-light wingmate-navbar">
+    <div class="container-fluid">
+        <!-- Logo on the left -->
+        <div class="navbar-brand">
+            <img src="../../assets/images/wingmate-navbar.png" alt="WingMate" class="navbar-logo" style="height: 50px; width: auto;">
+        </div>
+        
+        <!-- Mobile toggle button -->
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        
+        <!-- Links on the right -->
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/profile/profile.php') !== false ? 'active' : ''; ?>" href="/features/profile/profile.php">Profile</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Swipe</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Matches</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/friends/friends.php') !== false ? 'active' : ''; ?>" href="/features/friends/friends.php">Friends</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Vote</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Settings</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
