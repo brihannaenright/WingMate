@@ -66,3 +66,17 @@ p{
     line-height: 24px;
     letter-spacing: 0.1px;
 }
+
+.wingmate-navbar {
+    width: 100%;
+    height: 93px;
+    padding: 15px 20px;
+    background: #FFFFFF;
+    box-shadow: 0 4px 4px 0 rgba(0, 0, 0, 0.25);
+}
+
+.nav-link.active {
+    border-radius: var(--wm-button-radius);
+    background: #F5F5F5;
+    padding: 8px 16px !important;
+}
