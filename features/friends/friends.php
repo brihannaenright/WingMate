@@ -19,7 +19,7 @@ $current_user_id = $_SESSION['user_id'] ?? null;
 
 // Redirects to login if not loged in
 if (!$current_user_id) {
-    header('Location: /features/login/login.php');
+    header('Location: /features/auth/login.php');
     exit;
 }
 
