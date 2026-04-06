@@ -144,12 +144,12 @@ if ($current_user_id) {
                     <form method="POST">
                         <input type="hidden" name="action" value="accept">
                         <input type="hidden" name="sender_id" value="<?php echo $request['user_id']; ?>">
-                        <button type="submit" class="btn btn-sm btn-success">Accept</button>
+                        <button type="submit" class="button-secondary">Accept</button>
                     </form>
                     <form method="POST">
                         <input type="hidden" name="action" value="reject">
                         <input type="hidden" name="sender_id" value="<?php echo $request['user_id']; ?>">
-                        <button type="submit" class="btn btn-sm btn-danger">Reject</button>
+                        <button type="submit" class="button-primary">Reject</button>
                     </form>
                 </div>
             </div>
@@ -158,11 +158,10 @@ if ($current_user_id) {
 <?php endif; ?>
 
 <div class="friends-container mb-4">
-    <h2>Search Users</h2>
     <form method="GET" action="friends.php">
         <div class="d-flex gap-2">
             <input type="text" class="form-control" name="q" placeholder="Search by name..." value="<?php echo htmlspecialchars($searchQuery); ?>">
-            <button type="submit" class="btn btn-sm btn-primary">Search</button>
+            <button type="submit" class="button-secondary">Search</button>
         </div>
     </form>
     <?php if (!empty($searchResults)): ?>
@@ -172,7 +171,7 @@ if ($current_user_id) {
                 <form method="POST">
                     <input type="hidden" name="action" value="send_request">
                     <input type="hidden" name="friend_id" value="<?php echo $result['user_id']; ?>">
-                    <button type="submit" class="btn btn-sm btn-primary">Add</button>
+                    <button type="submit" class="button-primary">Add</button>
                 </form>
             </div>
         <?php endforeach; ?>
