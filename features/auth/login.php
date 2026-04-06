@@ -1,11 +1,3 @@
-<!--Requirements
-1. Secure session handling
-2. Input validation and sanitization
-3. Protection against basic SQL Injection
-4. Verify hashed password with password_verify()
-5. No hard-coded credentials
--->
-
 <?php
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../includes/session.php';
