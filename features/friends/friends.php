@@ -10,13 +10,20 @@
 
 <?php
 include __DIR__ . '/../../includes/session.php';
-include __DIR__ . '/../../includes/nav-header.php';
 require_once __DIR__ . '/../../config/config.php';
 
 wingmate_start_secure_session();
 
-// Get current user ID
+// Gets current user ID
 $current_user_id = $_SESSION['user_id'] ?? null;
+
+// Redirects to login if not loged in
+if (!$current_user_id) {
+    header('Location: /features/login/login.php');
+    exit;
+}
+
+include __DIR__ . '/../../includes/nav-header.php';
 
 // Fetch accepted friends
 $friends = [];

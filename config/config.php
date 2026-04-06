@@ -1,9 +1,4 @@
 <?php
-// Start session so user data persists across pages
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 // Load the .env file
 $lines = file(__DIR__ . '/../.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 

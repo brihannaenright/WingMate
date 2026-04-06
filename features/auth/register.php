@@ -134,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn->commit();
             session_regenerate_id(true);
             $_SESSION['user_id'] = $newUserId;
-            header('Location: /features/profile/profile.php');
+            header('Location: /features/friends/friends.php');
             exit;
         } catch (Exception $e) {
             $conn->rollback();
