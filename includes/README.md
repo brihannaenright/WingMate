@@ -4,11 +4,17 @@ This folder contains reusable PHP code and components that are shared across mul
 
 ## Contents
 
-- **auth-header.php**  
-  Reusable HTML header for authorisation pages, such as login and register. Contains opening HTML tags and links Bootstrap CSS and Global CSS.
+- **session.php**
+  Core security functions for session management and CSRF protection. Must be included on all pages.
+  - `wingmate_start_secure_session()` - Initializes secure session with HTTPOnly, Secure, and SameSite flags. Auto-regenerates session ID every 15 minutes.
+  - `wingmate_get_csrf_token()` - Generates and retrieves CSRF token (creates new token if none exists)
+  - `wingmate_validate_csrf_token()` - Validates submitted CSRF token and generates new one on success
 
-- **header.php**
-  Reusable HTML header for majority of pages across Wingmate. Contains opening HTML tags, links to Bootstrap CSS and Global CSS, as well as the WingMate Navigation bar.
+- **auth-header.php**  
+  Reusable HTML header for authorisation pages, such as login and register. Contains opening HTML5 doctype, meta tags, Bootstrap CSS link, and Global CSS link.
+
+- **nav-header.php**
+  Reusable HTML header for authenticated pages across WingMate. Contains opening HTML tags, links to Bootstrap CSS and Global CSS, as well as the WingMate Navigation bar for logged-in users.
 
 - **footer.php**
-  Reusable HTML footer for all pages across WingMate, includes closing body and HTML tags. Also includes the Bootstrap JS bundle, which will optionally be used. Bootstrap JS is loaded at the end, so the rest of the page does not have to wait for it.
+  Reusable HTML footer for all pages across WingMate. Includes closing `</body>` and `</html>` tags. Also includes Bootstrap JavaScript bundle, loaded at the end to prevent blocking page rendering.

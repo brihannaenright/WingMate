@@ -22,12 +22,13 @@ $fieldErrors = [
     'dob' => '',
 ];
 
-// Retrieve error messages and form data from previous submission (if validation failed)
+//Checks for any errors, grabs the error message and then unsets the session variable
 if (isset($_SESSION['register_error'])) {
     $registerError = (string) $_SESSION['register_error'];
     unset($_SESSION['register_error']);
 }
 
+//Checks for any errors in field validation, grabs the error message and then unsets the session variable
 if (isset($_SESSION['register_field_errors']) && is_array($_SESSION['register_field_errors'])) {
     foreach ($fieldErrors as $key => $value) {
         $fieldErrors[$key] = (string) ($_SESSION['register_field_errors'][$key] ?? '');
@@ -35,6 +36,7 @@ if (isset($_SESSION['register_field_errors']) && is_array($_SESSION['register_fi
     unset($_SESSION['register_field_errors']);
 }
 
+//Checks for any previous input in register form, grabs the input and then unsets the session variable (so data doesn't persist indefinitely)
 if (isset($_SESSION['register_form']) && is_array($_SESSION['register_form'])) {
     $email = (string) ($_SESSION['register_form']['email'] ?? '');
     $first_name = (string) ($_SESSION['register_form']['first_name'] ?? '');
@@ -44,16 +46,17 @@ if (isset($_SESSION['register_form']) && is_array($_SESSION['register_form'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Validate CSRF token before processing register
     if (!wingmate_validate_csrf_token($_POST['csrf_token'] ?? null)) {
         http_response_code(400);
         $registerError = 'Session validation failed. Please refresh and try again.';
     } else {
-        $email = test_input($_POST['email']);
-        $password = test_input($_POST['password']);
-        $confirm_password = test_input($_POST['confirm_password']);
-        $first_name = test_input($_POST['first_name']);
-        $last_name = test_input($_POST['last_name']);
-        $age = test_input($_POST['dob']);
+        $email = clean_input($_POST['email']);
+        $password = clean_input($_POST['password']);
+        $confirm_password = clean_input($_POST['confirm_password']);
+        $first_name = clean_input($_POST['first_name']);
+        $last_name = clean_input($_POST['last_name']);
+        $age = clean_input($_POST['dob']);
 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $fieldErrors['email'] = 'Please enter a valid email address.';
@@ -134,7 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn->commit();
             session_regenerate_id(true);
             $_SESSION['user_id'] = $newUserId;
-            header('Location: /features/profile/profile.php');
+            header('Location: /features/friends/friends.php');
             exit;
         } catch (Exception $e) {
             $conn->rollback();
@@ -172,10 +175,10 @@ function has_field_errors($fieldErrors) {
     return false;
 }
 
-function test_input($data) {
+function clean_input($data) {
   $data = trim($data);
   $data = stripslashes($data);
-  $data = htmlspecialchars($data);
+  $data = htmlspecialchars($data, ENT_QUOTES, 'UTF-8');
   return $data;
 }
 ?>
@@ -251,7 +254,7 @@ function test_input($data) {
                         <?php endif; ?>
                     </div>
                     <div class="buttons">
-                        <button type="button" onclick="window.location.href='/features/login/login.php'">Login</button>
+                        <button type="button" onclick="window.location.href='/features/auth/login.php'">Login</button>
                         <button class="button-secondary" type="submit">Register</button>
                         <?php if ($registerSuccess !== ''): ?>
                             <p class="auth-success"><?php echo htmlspecialchars($registerSuccess, ENT_QUOTES, 'UTF-8'); ?></p>
