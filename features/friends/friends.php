@@ -123,126 +123,169 @@ if ($current_user_id) {
     $friends = $result->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
 }
-?>
-<link rel="stylesheet" href="./friends.css">
-<div class="container-fluid friends-page-container">
-    <div class="row friends-page-row">
-        <!-- Friends List Sidebar -->
-        <div class="col-lg-3 friends-list d-lg-block" id="friendsSidebar">
-            <button class="btn btn-light fw-bold w-100 mb-3 d-lg-none" type="button" data-bs-toggle="collapse" 
-                    data-bs-target="#sidebarContent" aria-expanded="false" aria-controls="sidebarContent">
-                ☰ WingMates
-            </button>
-            <div class="collapse dont-collapse-lg" id="sidebarContent">
-                <?php if (count($pendingRequests) > 0): ?>
-    <div class="friends-container mb-4">
-        <h2>Friend Requests</h2>
-        <?php foreach ($pendingRequests as $request): ?>
-            <div class="d-flex align-items-center justify-content-between mb-2">
-                <span><?php echo htmlspecialchars($request['first_name'] . ' ' . $request['last_name']); ?></span>
-                <div class="d-flex gap-1">
-                    <form method="POST">
-                        <input type="hidden" name="action" value="accept">
-                        <input type="hidden" name="sender_id" value="<?php echo $request['user_id']; ?>">
-                        <button type="submit" class="button-secondary">Accept</button>
-                    </form>
-                    <form method="POST">
-                        <input type="hidden" name="action" value="reject">
-                        <input type="hidden" name="sender_id" value="<?php echo $request['user_id']; ?>">
-                        <button type="submit" class="button-primary">Reject</button>
-                    </form>
-                </div>
-            </div>
-        <?php endforeach; ?>
-    </div>
-<?php endif; ?>
 
-<div class="friends-container mb-4">
-    <form method="GET" action="friends.php">
-        <div class="d-flex gap-2">
-            <input type="text" class="form-control" name="q" placeholder="Search by name..." value="<?php echo htmlspecialchars($searchQuery); ?>">
-            <button type="submit" class="button-secondary">Search</button>
-        </div>
-    </form>
-    <?php if (!empty($searchResults)): ?>
-        <?php foreach ($searchResults as $result): ?>
-            <div class="d-flex align-items-center justify-content-between mt-2">
-                <span><?php echo htmlspecialchars($result['first_name'] . ' ' . $result['last_name']); ?></span>
-                <form method="POST">
-                    <input type="hidden" name="action" value="send_request">
-                    <input type="hidden" name="friend_id" value="<?php echo $result['user_id']; ?>">
-                    <button type="submit" class="button-primary">Add</button>
-                </form>
-            </div>
-        <?php endforeach; ?>
-    <?php elseif (!empty($searchQuery)): ?>
-        <p class="mt-2">No users found.</p>
-    <?php endif; ?>
-</div>
-                <div class="friends-container">
-                    <div class="d-flex align-items-center justify-content-between gap-2 mb-4">
-                        <h2 class="m-0">My WingMates</h2>
-                    </div>
-                    <div class="friends-grid">
-                        <?php if (count($friends) > 0): ?>
-                            <?php foreach ($friends as $friend): ?>
-                                <div class="friend-card" data-user-id="<?php echo (int)$friend['user_id']; ?>" data-friend-name="<?php echo htmlspecialchars($friend['first_name'] . ' ' . $friend['last_name']); ?>">
-                                    <div class="friend-image-wrapper">
-                                        <?php if ($friend['photo_url']): ?>
-                                            <img src="../../assets/images/<?php echo htmlspecialchars($friend['photo_url']); ?>" 
-                                                 alt="<?php echo htmlspecialchars($friend['first_name'] . ' ' . $friend['last_name']); ?>" 
-                                                 class="friend-image">
-                                        <?php else: ?>
-                                            <div class="friend-image-placeholder"></div>
-                                        <?php endif; ?>
+$groups = [];
+?>
+<link rel="stylesheet" href="./chats-sidebar.css">
+	<div class="container-fluid">
+        <div class="row">
+            <div class="col-lg-3 chats-sidebar" id="chatsSidebar">
+                <button class="btn btn-light fw-bold w-100 mb-3 d-lg-none" type="button" data-bs-toggle="collapse" 
+                    data-bs-target="#sidebarContent">
+                    ☰ Chats
+                </button>
+                <div class="collapse dont-collapse-lg" id="sidebarContent">
+                    <!-- Direct Chats -->  
+                    <div class="chats-list d-flex flex-column align-items-start justify-content-between mb-4">
+                        <div class="list-title d-flex flex-row gap-2 mb-4">
+                            <h2 class="title pe-2">My WingMates</h2>
+                            <button class="inbox-btn" data-bs-toggle="modal" data-bs-target="#inboxModal">
+                                <img src="../../assets/images/inbox-button.svg" alt="Inbox">
+                            </button>
+                            <button class="add-btn" data-bs-toggle="modal" data-bs-target="#addFriendModal">
+                                <img src="../../assets/images/add-button.svg" alt="Add">
+                            </button>
+                        </div>
+                        <div class="chats-grid">
+                            <?php if (count($friends) > 0): ?>
+                                <?php foreach ($friends as $friend): ?>
+                                    <div class="chat-card d-flex flex-row align-items-center gap-3 pb-3" data-user-id="<?php echo (int)$friend['user_id']; ?>" data-friend-name="<?php echo htmlspecialchars($friend['first_name'] . ' ' . $friend['last_name']); ?>">
+                                        <div class="profile-image-wrapper">
+                                            <?php if ($friend['photo_url']): ?>
+                                                <img src="../../assets/images/<?php echo htmlspecialchars($friend['photo_url']); ?>" 
+                                                    alt="<?php echo htmlspecialchars($friend['first_name'] . ' ' . $friend['last_name']); ?>" 
+                                                    class="profile-image">
+                                            <?php endif; ?>
+                                        </div>
+                                        <p class="profile-name"><?php echo htmlspecialchars($friend['first_name'] . ' ' . $friend['last_name']); ?></p>
                                     </div>
-                                    <p class="friend-name"><?php echo htmlspecialchars($friend['first_name'] . ' ' . $friend['last_name']); ?></p>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <p class="empty-state-message">No friends yet. Add some wingmates!</p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <!-- Groups Chats -->  
+                    <div class="chats-list d-flex flex-column align-items-start justify-content-between mb-4">
+                        <h2>My Groups</h2>
+                        <?php if (count($groups) > 0): ?>
+                            <?php foreach ($groups as $group): ?>
+                                <div class="chat-card d-flex flex-row align-items-center gap-3" data-group-id="<?php echo (int)$group['group_id']; ?>" data-group-name="<?php echo htmlspecialchars($group['group_name']); ?>">
+                                    <!-- Placeholder for group image and name if needed -->
                                 </div>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <p class="empty-state-message">No friends yet. Add some wingmates!</p>
+                            <p class = "empty-state-message">No groups yet. Create or join a group!</p>
                         <?php endif; ?>
-                    </div>
-                </div>    
-                <div class="friends-container mt-4 d-flex align-items-center justify-content-between">
-                    <div class="d-flex align-items-center justify-content-between gap-2 mb-4">
-                        <h2 class="m-0">My Groups</h2>
-                        <button class="add-friend-btn">+</button>
-                    </div>
-                    <!-- Groups list items will go here -->
-                </div>  
+                    </div> 
+                </div>
             </div>
-        </div>
-        
-        <div class="col-lg-9 friends-page-chat">
-            <?php include __DIR__ . '/../../features/chats/chat-ui.php'; ?>
+            <!--Displays the chat -->
+            <div class="col-lg-9 d-flex flex-column friends-page-chat">
+                <?php include __DIR__ . '/../../features/chats/chat-ui.php'; ?>
+            </div> 
+        </div>    
+	</div>
+
+<!-- Add Friend Dialog -->
+<div class="modal fade" id="addFriendModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Friend</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form method="GET" action="friends.php">
+                    <div class="d-flex gap-2">
+                        <input type="text" class="form-control" name="q" placeholder="Search by name...">
+                        <button type="submit" class="button-secondary">Search</button>
+                    </div>
+                </form>
+                <?php if (!empty($searchResults)): ?>
+                    <?php foreach ($searchResults as $result): ?>
+                        <div class="d-flex align-items-center justify-content-between mt-2">
+                            <span><?php echo htmlspecialchars($result['first_name'] . ' ' . $result['last_name']); ?></span>
+                            <form method="POST">
+                                <input type="hidden" name="action" value="send_request">
+                                <input type="hidden" name="friend_id" value="<?php echo $result['user_id']; ?>">
+                                <button type="submit" class="button-primary">Add</button>
+                            </form>
+                        </div>
+                    <?php endforeach; ?>
+                <?php elseif (!empty($searchQuery)): ?>
+                    <p class="search-result">No users found.</p>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 </div>
 
+<!-- Inbox Dialog -->
+<div class="modal fade" id="inboxModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Friend Requests</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <?php if (count($pendingRequests) > 0): ?>
+                    <?php foreach ($pendingRequests as $request): ?>
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span><?php echo htmlspecialchars($request['first_name'] . ' ' . $request['last_name']); ?></span>
+                            <div class="d-flex gap-1">
+                                <form method="POST">
+                                    <input type="hidden" name="action" value="accept">
+                                    <input type="hidden" name="sender_id" value="<?php echo $request['user_id']; ?>">
+                                    <button type="submit" class="button-secondary">Accept</button>
+                                </form>
+                                <form method="POST">
+                                    <input type="hidden" name="action" value="reject">
+                                    <input type="hidden" name="sender_id" value="<?php echo $request['user_id']; ?>">
+                                    <button type="submit" class="button-primary">Reject</button>
+                                </form>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php elseif (count($pendingRequests) === 0): ?>
+                    <p class="search-result">No pending friend requests.</p>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php include __DIR__ . '/../../includes/footer.php'; ?>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+
     // Initialize ChatManager with current user ID
     ChatManager.init(<?php echo (int)$current_user_id; ?>);
 
-    const friendCards = document.querySelectorAll('.friend-card');
+    const chatCards = document.querySelectorAll('.chat-card');
 
-    friendCards.forEach(card => {
+    chatCards.forEach(card => {
         card.addEventListener('click', function() {
-            const friendId = this.getAttribute('data-user-id');
-            const friendName = this.getAttribute('data-friend-name');
+            const profileId = this.getAttribute('data-user-id');
+            const profileName = this.getAttribute('data-user-name');
 
             // Remove active state from all cards
-            friendCards.forEach(c => c.classList.remove('active'));
+            chatCards.forEach(c => c.classList.remove('active'));
             
             // Add active state to clicked card
             this.classList.add('active');
 
             // Load chat using ChatManager
-            ChatManager.loadChat(friendId, friendName);
+            ChatManager.loadChat(profileId, profileName);
         });
     });
+
+    // Reopen modal if there are search results (stops modal from closing on search submit)
+    <?php if (!empty($searchQuery)): ?>
+        const modal = new bootstrap.Modal(document.getElementById('addFriendModal'));
+        modal.show();
+    <?php endif; ?>
 });
 </script>
-
-<?php include __DIR__ . '/../../includes/footer.php'; ?>
