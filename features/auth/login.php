@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $password = clean_input($_POST['password']);
     
         try {
-            $stmt = $conn->prepare("SELECT user_id, password_hash FROM Users WHERE email = ?");
+            $stmt = $conn->prepare("SELECT user_id, password_hash, user_type, account_status FROM Users WHERE email = ?");
             $stmt->bind_param("s", $email);
             $stmt->execute();
             $result = $stmt->get_result();
@@ -40,10 +40,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $user = $result->fetch_assoc();
                 // Verify password against stored hash
                 if (password_verify($password, $user['password_hash'])) {
-                    session_regenerate_id(true);
-                    $_SESSION['user_id'] = $user['user_id'];
-                    header('Location: /features/friends/friends.php');
-                    exit;
+                    // Block suspended or banned accounts from logging in
+                    if ($user['account_status'] === 'suspended' || $user['account_status'] === 'banned') {
+                        $loginError = 'Your account has been suspended or banned.';
+                    } else {
+                        session_regenerate_id(true);
+                        $_SESSION['user_id'] = $user['user_id'];
+                        $_SESSION['user_type'] = $user['user_type'];
+
+                        // Redirect admins to admin dashboard, standard users to friends page
+                        if ($user['user_type'] === 'administrator') {
+                            header('Location: /features/admin/admin.php');
+                        } else {
+                            header('Location: /features/friends/friends.php');
+                        }
+                        exit;
+                    }
                 } else {
                     $loginError = 'Incorrect email or password.';
                 }

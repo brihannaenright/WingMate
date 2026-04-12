@@ -116,13 +116,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($registerError === '' && !has_field_errors($fieldErrors)) {
         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
+        // Accounts with a @wingmate.com email are automatically made administrators
+        if (str_ends_with($email, '@wingmate.com')) {
+            $user_type = 'administrator';
+        } else {
+            $user_type = 'standard';
+        }
+
+
         $conn->begin_transaction();
 
         try {
             // Insert user credentials
-            $stmt = $conn->prepare("INSERT INTO Users (email, password_hash, created_at, user_type, account_status, suspended_until) 
-            VALUES (?, ?, NOW(), 'standard', 'active', NULL)");
-            $stmt->bind_param("ss", $email, $hashedPassword);
+            $stmt = $conn->prepare("INSERT INTO Users (email, password_hash, created_at, user_type, account_status, suspended_until)
+            VALUES (?, ?, NOW(), ?, 'active', NULL)");
+            $stmt->bind_param("sss", $email, $hashedPassword, $user_type);
             $stmt->execute();
             $stmt->close();
 
