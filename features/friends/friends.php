@@ -125,8 +125,8 @@ if ($current_user_id) {
 }
 ?>
 <link rel="stylesheet" href="./friends.css">
-<div class="container-fluid">
-    <div class="row">
+<div class="container-fluid friends-page-container">
+    <div class="row friends-page-row">
         <!-- Friends List Sidebar -->
         <div class="col-lg-3 friends-list d-lg-block" id="friendsSidebar">
             <button class="btn btn-light fw-bold w-100 mb-3 d-lg-none" type="button" data-bs-toggle="collapse" 
@@ -186,7 +186,7 @@ if ($current_user_id) {
                     <div class="friends-grid">
                         <?php if (count($friends) > 0): ?>
                             <?php foreach ($friends as $friend): ?>
-                                <div class="friend-card">
+                                <div class="friend-card" data-user-id="<?php echo (int)$friend['user_id']; ?>" data-friend-name="<?php echo htmlspecialchars($friend['first_name'] . ' ' . $friend['last_name']); ?>">
                                     <div class="friend-image-wrapper">
                                         <?php if ($friend['photo_url']): ?>
                                             <img src="../../assets/images/<?php echo htmlspecialchars($friend['photo_url']); ?>" 
@@ -204,7 +204,7 @@ if ($current_user_id) {
                         <?php endif; ?>
                     </div>
                 </div>    
-                <div class="friends-container mt-4">
+                <div class="friends-container mt-4 d-flex align-items-center justify-content-between">
                     <div class="d-flex align-items-center justify-content-between gap-2 mb-4">
                         <h2 class="m-0">My Groups</h2>
                         <button class="add-friend-btn">+</button>
@@ -214,10 +214,35 @@ if ($current_user_id) {
             </div>
         </div>
         
-        <div class="col-lg-9">
-            <!-- Chat area will go here -->
+        <div class="col-lg-9 friends-page-chat">
+            <?php include __DIR__ . '/../../features/chats/chat-ui.php'; ?>
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize ChatManager with current user ID
+    ChatManager.init(<?php echo (int)$current_user_id; ?>);
+
+    const friendCards = document.querySelectorAll('.friend-card');
+
+    friendCards.forEach(card => {
+        card.addEventListener('click', function() {
+            const friendId = this.getAttribute('data-user-id');
+            const friendName = this.getAttribute('data-friend-name');
+
+            // Remove active state from all cards
+            friendCards.forEach(c => c.classList.remove('active'));
+            
+            // Add active state to clicked card
+            this.classList.add('active');
+
+            // Load chat using ChatManager
+            ChatManager.loadChat(friendId, friendName);
+        });
+    });
+});
+</script>
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>

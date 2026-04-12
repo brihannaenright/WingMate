@@ -1,12 +1,8 @@
 .friends-list {
     background-color: #C30E59;
     padding: 1rem;
-}
-
-@media (min-width: 992px) {
-    .friends-list {
-        min-height: 100vh;
-    }
+    overflow-y: auto;
+    min-height: calc(100vh - 80px);
 }
 
 @media (min-width: 992px) {
@@ -17,6 +13,43 @@
     .dont-collapse-lg.collapse {
         display: block !important;
     }
+}
+
+/* Friends page layout - explicit flex for side-by-side */
+.friends-page-container {
+    padding: 0 !important;
+}
+
+.friends-page-row {
+    height: calc(100vh - 80px);
+    margin: 0;
+}
+
+.friends-page-row > .col-lg-3 {
+    flex: 0 0 25%;
+    max-width: 25%;
+}
+
+.friends-page-row > .col-lg-9 {
+    flex: 0 0 75%;
+    max-width: 75%;
+    padding: 0 !important;
+    overflow: hidden;
+}
+
+.friends-page-chat {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.col-lg-9 {
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-container {
+    flex: 1;
 }
 
 .friends-container {
@@ -115,4 +148,14 @@ h2 {
     color: #999;
     font-weight: 300;
     margin: 1rem 0;
+}
+
+/* Friend Card Active State */
+.friend-card.active .friend-image-wrapper {
+    box-shadow: 0 0 0 3px #C30E59;
+}
+
+.friend-card.active .friend-name {
+    color: #C30E59;
+    font-weight: 600;
 }
