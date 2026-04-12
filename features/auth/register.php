@@ -145,7 +145,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn->commit();
             session_regenerate_id(true);
             $_SESSION['user_id'] = $newUserId;
-            header('Location: /features/friends/friends.php');
+            $_SESSION['user_type'] = $user_type;
+
+            // Redirect admins to admin dashboard, standard users to friends page
+            if ($user_type === 'administrator') {
+                header('Location: /features/admin/admin.php');
+            } else {
+                header('Location: /features/friends/friends.php');
+            }
             exit;
         } catch (Exception $e) {
             $conn->rollback();
