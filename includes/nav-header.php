@@ -44,7 +44,7 @@
                     <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/friends/friends.php') !== false ? 'active' : ''; ?>" href="/features/friends/friends.php">Friends</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">Vote</a>
+                    <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/vote/vote.php') !== false ? 'active' : ''; ?>" href="/features/vote/vote.php">Vote</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="#">Settings</a>
