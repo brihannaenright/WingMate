@@ -1,0 +1,116 @@
+/* vote.css — WingMate vote page */
+
+.vote-page {
+    max-width: 1100px;
+    margin: 2rem auto;
+    padding: 0 1rem 4rem;
+}
+
+/* Coloured outer panels */
+.vote-panel {
+    border-radius: 1.25rem;
+    padding: 6px;
+    position: relative;
+    overflow: hidden;
+}
+.vote-panel--pink   { background-color: var(--wm-button-primary); }
+.vote-panel--orange { background-color: var(--wm-button-secondary); }
+
+/* Decorative circles */
+.vote-panel::before,
+.vote-panel::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.25);
+    pointer-events: none;
+}
+.vote-panel--pink::before  { width: 200px; height: 200px; top: -60px; right: -60px; }
+.vote-panel--pink::after   { width: 140px; height: 140px; bottom: 40px; left: -50px; }
+.vote-panel--orange::before { width: 200px; height: 200px; top: -60px; left: -60px; }
+.vote-panel--orange::after  { width: 140px; height: 140px; bottom: 40px; right: -50px; }
+
+/* White inner area */
+.vote-panel__inner {
+    background: #fff;
+    border-radius: calc(1.25rem - 5px);
+    padding: 1.5rem;
+    min-height: 480px;
+    position: relative;
+    z-index: 1;
+}
+
+.vote-panel__title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 1.25rem;
+}
+
+/* Individual cards */
+.vote-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 0.75rem;
+    padding: 0.875rem;
+    margin-bottom: 0.875rem;
+    transition: box-shadow 0.2s ease, opacity 0.4s ease, transform 0.4s ease;
+}
+.vote-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+
+/* Avatar */
+.vote-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    color: #fff;
+}
+.vote-avatar--pink   { background: var(--wm-button-primary); }
+.vote-avatar--orange { background: var(--wm-button-secondary); }
+
+/* Name text */
+.vote-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+/* Stats label */
+.vote-stats-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+/* Approval progress bar */
+.vote-progress {
+    background: #f0f0f0;
+    border-radius: 99px;
+    height: 6px;
+    overflow: hidden;
+}
+.vote-progress__fill {
+    height: 100%;
+    border-radius: 99px;
+    background: var(--wm-button-primary);
+    transition: width 0.5s ease;
+}
+
+/* Empty state */
+.vote-empty {
+    text-align: center;
+    color: #999;
+    font-weight: 300;
+    padding: 2rem 0;
+    font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+    .vote-page { padding: 0 0.5rem 3rem; }
+}
