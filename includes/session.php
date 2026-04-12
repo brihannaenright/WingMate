@@ -64,6 +64,15 @@ function wingmate_validate_csrf_token(?string $submittedToken): bool
     return $isValid;
 }
 
+// Redirects to login if the user is not an admin
+function wingmate_require_admin(): void
+{
+    if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'administrator') {
+        header('Location: /features/auth/login.php');
+        exit;
+    }
+}
+
 function wingmate_destroy_session(): void
 {
     if (session_status() !== PHP_SESSION_ACTIVE) {

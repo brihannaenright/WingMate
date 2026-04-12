@@ -1,0 +1,57 @@
+.admin-dashboard {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.admin-error {
+    color: #B42318;
+    font-size: 14px;
+}
+
+/* Table styling */
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+    padding: 12px 10px;
+    text-align: left;
+    font-family: var(--wm-font-family);
+    font-size: 14px;
+    border-bottom: 1px solid #E0E0E0;
+}
+
+.admin-table th {
+    font-weight: 600;
+}
+
+/* Colour-coded status badges */
+.status-badge {
+    padding: 4px 10px;
+    border-radius: var(--wm-button-radius);
+    color: #FFFFFF;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-active {
+    background-color: #2E7D32;
+}
+
+.status-suspended {
+    background-color: var(--wm-button-secondary);
+}
+
+.status-banned {
+    background-color: var(--wm-button-primary);
+}
+
+/* Smaller action buttons that reuse global button styles */
+.admin-action-btn {
+    width: auto;
+    height: auto;
+    padding: 4px 14px;
+    font-size: 12px;
+}
