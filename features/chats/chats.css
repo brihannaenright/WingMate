@@ -51,6 +51,11 @@
     margin-left: auto;
 }
 
+.report-settings button{
+    all: unset;
+    cursor: pointer;
+}
+
 .messages-container {
     flex: 1;
     overflow-y: auto;

@@ -128,6 +128,78 @@ if ($action === 'send_message' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
+// Report a user
+if ($action === 'report_user' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    $reporter_id = (int) ($current_user_id ?? 0);
+    $reported_id = (int) ($_POST['reported_id'] ?? 0);
+    $reason = trim($_POST['reason'] ?? '');
+    $details = trim($_POST['details'] ?? '');
+
+    if (!$reported_id || empty($reason)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'reported_id and reason are required']);
+        exit;
+    }
+
+    // Prevent self-reporting
+    if ($reporter_id === $reported_id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'You cannot report yourself']);
+        exit;
+    }
+
+    // Limit details to 200 words
+    $wordCount = str_word_count($details);
+    if ($wordCount > 200) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Details exceed 200 words']);
+        exit;
+    }
+
+    // Prevent duplicate spam reports (optional but recommended)
+    $checkStmt = $conn->prepare("
+        SELECT report_id 
+        FROM User_Reports 
+        WHERE reporter_id = ? 
+        AND reported_id = ? 
+        AND report_status = 'open'
+        LIMIT 1
+    ");
+    $checkStmt->bind_param("ii", $reporter_id, $reported_id);
+    $checkStmt->execute();
+    $checkResult = $checkStmt->get_result();
+
+    if ($checkResult->num_rows > 0) {
+        echo json_encode(['error' => 'You already have an open report for this user']);
+        $checkStmt->close();
+        exit;
+    }
+    $checkStmt->close();
+
+    // Insert report
+    $stmt = $conn->prepare("
+        INSERT INTO User_Reports 
+        (reporter_id, reported_id, reason, details, report_status, created_at)
+        VALUES (?, ?, ?, ?, 'open', UTC_TIMESTAMP())
+    ");
+
+    $stmt->bind_param("iiss", $reporter_id, $reported_id, $reason, $details);
+
+    if ($stmt->execute()) {
+        echo json_encode([
+            'success' => true,
+            'report_id' => $stmt->insert_id
+        ]);
+    } else {
+        http_response_code(500);
+        echo json_encode(['error' => 'Failed to submit report']);
+    }
+
+    $stmt->close();
+    exit;
+}
+
 http_response_code(400);
 echo json_encode(['error' => 'Invalid action']);
 ?>

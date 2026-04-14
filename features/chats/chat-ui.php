@@ -32,8 +32,12 @@ if (!defined('CHAT_UI_INCLUDED')) {
                     <h3 id="chatFriendName"></h3>
                 </div>
                 <div class="report-settings gap-3">
-                        <img src="/assets/images/flag-icon.svg" alt="Report" title="Report this user" class="report-icon">
-                        <img src="/assets/images/settings-icon.svg" alt="Settings" title="Settings" class="settings-icon">
+                    <button class="report-btn" data-bs-toggle="modal" data-bs-target="#reportModal">
+                            <img src="/assets/images/flag-icon.svg" alt="Report" title="Report this user">
+                    </button>
+                    <button class="settings-btn" data-bs-toggle="modal" data-bs-target="#settingsModal">
+                            <img src="/assets/images/settings-icon.svg" alt="Settings" title="Settings">
+                    </button>
                 </div>
             </div>
             <div id="messagesContainer" class="messages-container d-flex flex-column">
@@ -44,6 +48,62 @@ if (!defined('CHAT_UI_INCLUDED')) {
                     <textarea id="messageInput" class="message-input" placeholder="Type a message..." rows="1"></textarea>
                     <button type="submit" class="btn-send">Send</button>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Dialog -->
+    <div class="modal fade" id="reportModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+
+                <form id="reportForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Report User</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+
+                        <!-- Reason dropdown -->
+                        <div class="mb-3">
+                            <label class="form-label">Reason</label>
+                            <select id="reportReason" class="form-select" required>
+                                <option value="">Select a reason</option>
+                                <option value="harassment">Harassment</option>
+                                <option value="spam">Spam</option>
+                                <option value="inappropriate_content">Inappropriate Content</option>
+                                <option value="impersonation">Impersonation</option>
+                                <option value="scam_fraud">Scam / Fraud</option>
+                                <option value="hate_speech">Hate Speech</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+
+                        <!-- Other reason input (hidden by default) -->
+                        <div class="mb-3 d-none" id="otherReasonWrapper">
+                            <label class="form-label">Specify Reason</label>
+                            <input type="text" id="customReason" class="form-control" placeholder="Enter reason">
+                        </div>
+
+                        <!-- Details -->
+                        <div class="mb-2">
+                            <label class="form-label">Details (max 200 words)</label>
+                            <textarea id="reportDetails" class="form-control" rows="4"
+                                placeholder="Describe the issue..."></textarea>
+                            <small class="text-muted">
+                                <span id="wordCount">0</span>/200 words
+                            </small>
+                        </div>
+
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="submit">Submit Report</button>
+                    </div>
+
+                </form>
+
             </div>
         </div>
     </div>
@@ -58,6 +118,7 @@ const ChatManager = {
     emptyState: null,
     chatContent: null,
     messagePoller: null,
+    currentFriendId: null,
     lastMessageCount: 0,
 
     // Initialises chat manager with current user ID and sets up event listeners
@@ -78,6 +139,7 @@ const ChatManager = {
         // Show loading state
         this.emptyState.classList.add('d-none');
         this.chatContent.classList.remove('d-none');
+        this.currentFriendId = friendId;
 
         document.getElementById('chatFriendName').textContent = 'Loading...';
 
@@ -232,6 +294,93 @@ const ChatManager = {
         }
     }
 };
+
+document.addEventListener('DOMContentLoaded', function () {
+
+    const reasonSelect = document.getElementById('reportReason');
+    const otherWrapper = document.getElementById('otherReasonWrapper');
+    const customReason = document.getElementById('customReason');
+    const details = document.getElementById('reportDetails');
+    const wordCount = document.getElementById('wordCount');
+    const form = document.getElementById('reportForm');
+
+    // Show/hide "Other"
+    reasonSelect.addEventListener('change', function () {
+        if (this.value === 'other') {
+            otherWrapper.classList.remove('d-none');
+            customReason.setAttribute('required', 'required');
+        } else {
+            otherWrapper.classList.add('d-none');
+            customReason.removeAttribute('required');
+            customReason.value = '';
+        }
+    });
+
+    // Word counter (max 200 words)
+    details.addEventListener('input', function () {
+        let words = this.value.trim().split(/\s+/).filter(w => w.length > 0);
+
+        if (words.length > 200) {
+            this.value = words.slice(0, 200).join(' ');
+            words = words.slice(0, 200);
+        }
+
+        wordCount.textContent = words.length;
+    });
+
+    // Submit report
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const reporterId = ChatManager.currentUserId;
+        const reportedId = ChatManager.currentFriendId;
+
+        if (!reportedId) {
+            alert('No user selected');
+            return;
+        }
+
+        const reasonValue = reasonSelect.value === 'other'
+            ? customReason.value.trim()
+            : reasonSelect.value;
+
+        if (!reasonValue) {
+            alert('Please select a reason');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('action', 'report_user');
+        formData.append('reporter_id', reporterId);
+        formData.append('reported_id', reportedId);
+        formData.append('reason', reasonValue);
+        formData.append('details', details.value.trim());
+
+        fetch('/features/chats/chat-api.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert('Report submitted successfully');
+                form.reset();
+                wordCount.textContent = '0';
+                otherWrapper.classList.add('d-none');
+
+                const modal = bootstrap.Modal.getInstance(document.getElementById('reportModal'));
+                modal.hide();
+            } else {
+                alert(data.error || 'Failed to submit report');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error submitting report');
+        });
+    });
+
+});
 </script>
 
 <?php
