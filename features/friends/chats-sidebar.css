@@ -71,6 +71,11 @@
     padding: 1rem 0;
 }
 
+.col-lg-9 {
+    padding-left: 0;
+    padding-right: 0;
+}
+
 /* Friend Card Active State */
 .chat-card.active .profile-image-wrapper {
     box-shadow: 0 0 0 3px #C30E59;

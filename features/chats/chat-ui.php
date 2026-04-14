@@ -15,26 +15,36 @@ if (!defined('CHAT_UI_INCLUDED')) {
 ?>
 <link rel="stylesheet" href="/features/chats/chats.css">
 
-<div id="chatContainer" class="chat-container">
+<div class="chat d-flex flex-column">
     <div id="emptyState" class="chat-empty-state">
         <div class="empty-state-content d-flex flex-column align-items-center justify-content-center">
-            <img src="/assets/images/chat-bubble.svg" alt="message-bubble" class="empty-state-icon">
-            <h1>Select a conversation</h1>
+            <p>Select a conversation</p>
             <p>Click on a contact to start messaging</p>
         </div>
     </div>
-    <div id="chatContent" class="chat-content" style="display: none;">
-        <div class="chat-header">
-            <h3 id="chatFriendName"></h3>
-        </div>
-        <div id="messagesContainer" class="messages-container">
-            <!-- Messages will be loaded here -->
-        </div>
-        <div class="chat-input-area">
-            <form id="messageForm" class="message-form">
-                <textarea id="messageInput" class="message-input" placeholder="Type a message..." rows="1"></textarea>
-                <button type="submit" class="btn-send">Send</button>
-            </form>
+    <div id="chatContent" class="chat-content d-none flex-column">
+        <div class="chat-container d-flex flex-column">
+            <div class="chat-header d-flex flex-row">
+                <div class="header-info d-flex flex-row gap-3">
+                    <div class="profile-image-wrapper">
+                        <img id="chatProfilePicture" class="profile-pic-header" src="" alt="Profile">
+                    </div>
+                    <h3 id="chatFriendName"></h3>
+                </div>
+                <div class="report-settings gap-3">
+                        <img src="/assets/images/flag-icon.svg" alt="Report" title="Report this user" class="report-icon">
+                        <img src="/assets/images/settings-icon.svg" alt="Settings" title="Settings" class="settings-icon">
+                </div>
+            </div>
+            <div id="messagesContainer" class="messages-container d-flex flex-column">
+                <!-- Messages will be loaded here -->
+            </div>
+            <div class="chat-input-area">
+                <form id="messageForm" class="message-form">
+                    <textarea id="messageInput" class="message-input" placeholder="Type a message..." rows="1"></textarea>
+                    <button type="submit" class="btn-send">Send</button>
+                </form>
+            </div>
         </div>
     </div>
 </div>
@@ -47,7 +57,10 @@ const ChatManager = {
     messageInput: null,
     emptyState: null,
     chatContent: null,
+    messagePoller: null,
+    lastMessageCount: 0,
 
+    // Initialises chat manager with current user ID and sets up event listeners
     init: function(userId) {
         this.currentUserId = userId;
         this.messageForm = document.getElementById('messageForm');
@@ -56,66 +69,114 @@ const ChatManager = {
         this.chatContent = document.getElementById('chatContent');
 
         if (this.messageForm) {
+            // Handle message form submission
             this.messageForm.addEventListener('submit', (e) => this.handleSendMessage(e));
         }
     },
 
-    loadChat: function(friendId, friendName, onLoadComplete = null) {
+    loadChat: function(friendId, friendName, profilePictureUrl = null, onLoadComplete = null) {
         // Show loading state
-        this.emptyState.style.display = 'none';
-        this.chatContent.style.display = 'flex';
-        document.getElementById('chatFriendName').textContent = 'Loading...';
-        document.getElementById('messagesContainer').innerHTML = '<p>Loading messages...</p>';
+        this.emptyState.classList.add('d-none');
+        this.chatContent.classList.remove('d-none');
 
-        // Get chat ID
+        document.getElementById('chatFriendName').textContent = 'Loading...';
+
+        if (profilePictureUrl) {
+            document.getElementById('chatProfilePicture').src = profilePictureUrl;
+        }
+
+        const messagesContainer = document.getElementById('messagesContainer');
+        messagesContainer.innerHTML = '<p class="loading">Loading messages...</p>';
+
+        // Stop any existing polling before switching chats
+        if (this.messagePoller) {
+            clearInterval(this.messagePoller);
+            this.messagePoller = null;
+        }
+
         fetch(`/features/chats/chat-api.php?action=get_chat_id&friend_id=${friendId}`)
             .then(response => response.json())
             .then(data => {
                 if (data.error) {
-                    document.getElementById('messagesContainer').innerHTML = '<p>Error loading chat</p>';
+                    messagesContainer.innerHTML = '<p>Error loading chat</p>';
                     if (onLoadComplete) onLoadComplete(false);
                     return;
                 }
+
                 this.currentChatId = data.chat_id;
                 document.getElementById('chatFriendName').textContent = friendName;
+
+                if (!profilePictureUrl && data.profile_picture) {
+                    document.getElementById('chatProfilePicture').src = data.profile_picture;
+                }
+
+                // Load messages immediately
                 this.loadMessages();
+
+                //POLLING (only when tab is active)
+                this.messagePoller = setInterval(() => {
+                    if (!this.currentChatId) return;
+
+                    // Only poll if user is actively viewing the tab
+                    if (document.hidden) return;
+
+                    this.loadMessages();
+                }, 3000);
+
                 if (onLoadComplete) onLoadComplete(true);
             })
             .catch(error => {
                 console.error('Error:', error);
-                document.getElementById('messagesContainer').innerHTML = '<p>Error loading chat</p>';
+                messagesContainer.innerHTML = '<p>Error loading chat</p>';
                 if (onLoadComplete) onLoadComplete(false);
             });
     },
 
     loadMessages: function() {
-        if (!this.currentChatId) return;
+    if (!this.currentChatId) return;
 
-        fetch(`/features/chats/chat-api.php?action=get_messages&chat_id=${this.currentChatId}`)
-            .then(response => response.json())
-            .then(data => {
-                const messagesContainer = document.getElementById('messagesContainer');
-                messagesContainer.innerHTML = '';
+    fetch(`/features/chats/chat-api.php?action=get_messages&chat_id=${this.currentChatId}`)
+        .then(response => response.json())
+        .then(data => {
+            const messagesContainer = document.getElementById('messagesContainer');
 
-                if (data.messages.length === 0) {
-                    messagesContainer.innerHTML = '<p class="no-messages">No messages yet. Start the conversation!</p>';
-                    return;
-                }
+            if (!data.messages) return;
 
-                data.messages.forEach(msg => {
-                    const messageDiv = document.createElement('div');
-                    messageDiv.className = `message ${msg.sender_id == this.currentUserId ? 'sent' : 'received'}`;
-                    messageDiv.innerHTML = `
-                        <div class="message-content">${this.escapeHtml(msg.content)}</div>
-                        <span class="message-time">${this.formatTime(msg.sent_at)}</span>
-                    `;
-                    messagesContainer.appendChild(messageDiv);
-                });
+            // Optional optimization: avoid full redraw if nothing changed
+            if (this.lastMessageCount === data.messages.length) {
+                return;
+            }
 
-                // Scroll to bottom
+            this.lastMessageCount = data.messages.length;
+
+            messagesContainer.innerHTML = '';
+
+            if (data.messages.length === 0) {
+                messagesContainer.innerHTML = '<p class="no-messages">No messages yet. Start the conversation!</p>';
+                return;
+            }
+
+            data.messages.forEach(msg => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${msg.sender_id == this.currentUserId ? 'sent' : 'received'}`;
+
+                messageDiv.innerHTML = `
+                    <div class="message-content">${this.escapeHtml(msg.content)}</div>
+                    <span class="message-time">${this.formatTime(msg.sent_at)}</span>
+                `;
+
+                messagesContainer.appendChild(messageDiv);
+            });
+
+            // Auto-scroll only if user is near bottom (prevents scroll fighting)
+            const isNearBottom =
+                messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 100;
+
+            if (isNearBottom) {
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            })
-            .catch(error => console.error('Error loading messages:', error));
+            }
+        })
+        .catch(error => console.error('Error loading messages:', error));
     },
 
     handleSendMessage: function(e) {
@@ -157,7 +218,7 @@ const ChatManager = {
     },
 
     formatTime: function(timestamp) {
-        const date = new Date(timestamp);
+        const date = new Date(timestamp + 'Z');
         const today = new Date();
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);

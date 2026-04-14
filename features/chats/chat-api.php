@@ -26,19 +26,28 @@ if ($action === 'get_chat_id') {
         exit;
     }
 
-    // Verify friendship exists
+    // Verify direct chat exists
     $stmt = $conn->prepare("
-        SELECT chat_id FROM Chats c
-        WHERE c.chat_type = 'friendship'
-        AND c.created_by IN (?, ?)
+        SELECT c.chat_id
+        FROM Chats c
+        WHERE c.chat_type = 'direct'
         AND EXISTS (
-            SELECT 1 FROM Friendship f
-            WHERE (f.user_id = ? AND f.friend_id = ?) 
-            OR (f.user_id = ? AND f.friend_id = ?)
+            SELECT 1 FROM Chat_Members cm
+            WHERE cm.chat_id = c.chat_id AND cm.user_id = ?
         )
+        AND EXISTS (
+            SELECT 1 FROM Chat_Members cm
+            WHERE cm.chat_id = c.chat_id AND cm.user_id = ?
+        )
+        AND (
+            SELECT COUNT(*)
+            FROM Chat_Members cm
+            WHERE cm.chat_id = c.chat_id
+        ) = 2
         LIMIT 1
     ");
-    $stmt->bind_param('iiiiii', $current_user_id, $friend_id, $current_user_id, $friend_id, $friend_id, $current_user_id);
+
+    $stmt->bind_param('ii', $current_user_id, $friend_id);
     $stmt->execute();
     $result = $stmt->get_result();
     
@@ -105,7 +114,7 @@ if ($action === 'send_message' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $stmt = $conn->prepare("
         INSERT INTO Messages (chat_id, sender_id, content, sent_at)
-        VALUES (?, ?, ?, NOW())
+        VALUES (?, ?, ?, UTC_TIMESTAMP())
     ");
     $stmt->bind_param('iis', $chat_id, $current_user_id, $content);
     

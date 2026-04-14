@@ -152,7 +152,7 @@ $groups = [];
                                     <div class="chat-card d-flex flex-row align-items-center gap-3 pb-3" data-user-id="<?php echo (int)$friend['user_id']; ?>" data-friend-name="<?php echo htmlspecialchars($friend['first_name'] . ' ' . $friend['last_name']); ?>">
                                         <div class="profile-image-wrapper">
                                             <?php if ($friend['photo_url']): ?>
-                                                <img src="../../assets/images/<?php echo htmlspecialchars($friend['photo_url']); ?>" 
+                                                <img src="/Uploads/<?php echo htmlspecialchars($friend['photo_url']); ?>"  
                                                     alt="<?php echo htmlspecialchars($friend['first_name'] . ' ' . $friend['last_name']); ?>" 
                                                     class="profile-image">
                                             <?php endif; ?>
@@ -269,7 +269,8 @@ document.addEventListener('DOMContentLoaded', function() {
     chatCards.forEach(card => {
         card.addEventListener('click', function() {
             const profileId = this.getAttribute('data-user-id');
-            const profileName = this.getAttribute('data-user-name');
+            const profileName = this.getAttribute('data-friend-name');
+            const profilePicture = this.querySelector('img')?.src || null;
 
             // Remove active state from all cards
             chatCards.forEach(c => c.classList.remove('active'));
@@ -278,7 +279,7 @@ document.addEventListener('DOMContentLoaded', function() {
             this.classList.add('active');
 
             // Load chat using ChatManager
-            ChatManager.loadChat(profileId, profileName);
+            ChatManager.loadChat(profileId, profileName, profilePicture);
         });
     });
 
