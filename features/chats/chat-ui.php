@@ -32,7 +32,7 @@ if (!defined('CHAT_UI_INCLUDED')) {
                     <h3 id="chatFriendName"></h3>
                 </div>
                 <div class="report-settings gap-3">
-                    <button class="report-btn" data-bs-toggle="modal" data-bs-target="#reportModal">
+                    <button id="headerReportBtn" class="report-btn" data-bs-toggle="modal" data-bs-target="#reportModal">
                             <img src="/assets/images/flag-icon.svg" alt="Report" title="Report this user">
                     </button>
                     <button class="settings-btn" data-bs-toggle="modal" data-bs-target="#settingsModal">
@@ -143,20 +143,86 @@ if (!defined('CHAT_UI_INCLUDED')) {
                     <div id="settingsContent" class="d-none">
                         <p class="text-muted mb-3" id="settingsManageText">Manage your friendship</p>
                         
-                        <!-- Remove Friend / Unmatch Button (context-aware) -->
-                        <button type="button" id="removeFriendBtn" class="btn remove-button w-100 mb-2 d-none">
-                            Remove as Friend
-                        </button>
-                        <button type="button" id="unmatchBtn" class="btn remove-button w-100 mb-2 d-none">
-                            Unmatch
-                        </button>
-                        <small class="text-muted d-block mb-3" id="removeFriendText"></small>
+                        <!-- Friend/Match Management Buttons -->
+                        <div id="friendMatchActions" class="d-none">
+                            <!-- Remove Friend / Unmatch Button (context-aware) -->
+                            <button type="button" id="removeFriendBtn" class="btn remove-button w-100 mb-2 d-none">
+                                Remove as Friend
+                            </button>
+                            <button type="button" id="unmatchBtn" class="btn remove-button w-100 mb-2 d-none">
+                                Unmatch
+                            </button>
+                            <small class="text-muted d-block mb-3" id="removeFriendText"></small>
 
-                        <button type="button" id="blockUserBtn" class="btn block-button w-100">
-                            Block User
-                        </button>
-                        <small class="text-muted d-block">They won't be able to request your friendship or view your profile</small>
+                            <button type="button" id="blockUserBtn" class="btn block-button w-100">
+                                Block User
+                            </button>
+                            <small class="text-muted d-block">They won't be able to request your friendship or view your profile</small>
+                        </div>
+
+                        <!-- Group Management Buttons -->
+                        <div id="groupActions" class="d-none">
+                            <button type="button" id="leaveGroupBtn" class="btn remove-button w-100 mb-2">
+                                Leave Group
+                            </button>
+                            <small class="text-muted d-block mb-3">You will no longer be part of this group</small>
+
+                            <button type="button" id="deleteGroupBtn" class="btn remove-button w-100 mb-2 d-none">
+                                Delete Group
+                            </button>
+                            <small class="text-muted d-block mb-3 d-none" id="deleteGroupText">This will permanently delete the group for everyone</small>
+
+                            <button type="button" id="kickUsersBtn" class="btn remove-button w-100 d-none">
+                                Kick Users
+                            </button>
+                            <small class="text-muted d-block d-none" id="kickUsersText">Remove members from the group</small>
+                        </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal fade" id="confirmationModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body pt-4 pb-0">
+                    <p id="confirmationText" class="text-center"></p>
+                </div>
+                <div class="modal-footer justify-content-center border-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="confirmationConfirmBtn" class="btn remove-button">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
+
+    <!-- Kick Users Modal -->
+    <div class="modal fade" id="kickUsersModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Kick Users from Group</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="kickError" class="alert alert-wingmate d-none" role="alert"></div>
+                    <div id="kickLoading" class="text-center d-none">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                    <div id="kickMembersContainer" class="border rounded p-3" style="max-height: 300px; overflow-y: auto;">
+                        <!-- Members list will be loaded here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="confirmKickBtn" class="btn remove-button">Remove</button>
                 </div>
             </div>
         </div>
@@ -164,6 +230,73 @@ if (!defined('CHAT_UI_INCLUDED')) {
 </div>
 
 <script>
+// Initialize modal once
+let confirmationModal = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const modalElement = document.getElementById('confirmationModal');
+    if (modalElement) {
+        confirmationModal = new bootstrap.Modal(modalElement, {
+            backdrop: 'static',
+            keyboard: false
+        });
+    }
+});
+
+// Helper function to show confirmation modal
+function showConfirmation(message, onConfirm, onCancel = null) {
+    if (!confirmationModal) {
+        console.error('Confirmation modal not initialized');
+        return;
+    }
+    
+    document.getElementById('confirmationText').textContent = message;
+    
+    const confirmBtn = document.getElementById('confirmationConfirmBtn');
+    const cancelBtn = document.querySelector('#confirmationModal .btn-secondary');
+    
+    // Remove any existing listeners by cloning
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    
+    const newCancelBtn = cancelBtn.cloneNode(true);
+    cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+    
+    // Add new confirm listener
+    newConfirmBtn.addEventListener('click', function() {
+        confirmationModal.hide();
+        if (onConfirm) {
+            setTimeout(onConfirm, 150);
+        }
+    });
+    
+    // Add new cancel listener
+    newCancelBtn.addEventListener('click', function() {
+        if (onCancel) {
+            onCancel();
+        }
+    });
+    
+    confirmationModal.show();
+}
+
+// Helper function to show toast notifications
+function showToast(message, type = 'info', duration = 3000) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast-notification toast-${type}`;
+    toast.textContent = message;
+    
+    container.appendChild(toast);
+    
+    if (duration > 0) {
+        setTimeout(() => {
+            toast.style.animation = 'slideOut 0.3s ease-out forwards';
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
+    }
+}
+
 const ChatManager = {
     currentUserId: null,
     currentChatId: null,
@@ -174,9 +307,12 @@ const ChatManager = {
     messagePoller: null,
     currentFriendId: null,
     currentMatchId: null,
+    currentGroupId: null,
+    chatType: 'direct', // 'direct', 'group', or 'match'
     lastMessageCount: 0,
     selectedMessageId: null,
     contextType: 'friends', // 'friends' or 'matches'
+    isCreator: false, // For group chats
 
     // Initialises chat manager with current user ID and sets up event listeners
     init: function(userId, contextType = 'friends') {
@@ -193,14 +329,80 @@ const ChatManager = {
         }
     },
 
+    loadGroupChat: function(groupId, groupName, profilePictureUrl = null, onLoadComplete = null) {
+        // Show loading state
+        this.emptyState.classList.add('d-none');
+        this.chatContent.classList.remove('d-none');
+        this.currentGroupId = groupId;
+        this.currentFriendId = null;
+        this.currentMatchId = null;
+        this.chatType = 'group';
+
+        document.getElementById('chatFriendName').textContent = 'Loading...';
+        
+        // Hide profile picture and report button for groups
+        document.querySelector('.chat-header .profile-image-wrapper').classList.add('d-none');
+        document.getElementById('headerReportBtn').classList.add('d-none');
+
+        const messagesContainer = document.getElementById('messagesContainer');
+        messagesContainer.innerHTML = '<p class="loading">Loading messages...</p>';
+
+        // Stop any existing polling before switching chats
+        if (this.messagePoller) {
+            clearInterval(this.messagePoller);
+            this.messagePoller = null;
+        }
+
+        fetch(`/features/chats/chat-api.php?action=get_group_chat&group_id=${groupId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    messagesContainer.innerHTML = '<p>Error loading chat</p>';
+                    if (onLoadComplete) onLoadComplete(false);
+                    return;
+                }
+
+                this.currentChatId = data.chat_id;
+                this.isCreator = data.is_creator;
+                document.getElementById('chatFriendName').textContent = groupName;
+
+                // Load messages immediately
+                this.loadMessages();
+
+                //POLLING (only when tab is active)
+                this.messagePoller = setInterval(() => {
+                    if (!this.currentChatId) return;
+
+                    // Only poll if user is actively viewing the tab
+                    if (document.hidden) return;
+
+                    this.loadMessages();
+                }, 3000);
+
+                if (onLoadComplete) onLoadComplete(true);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                messagesContainer.innerHTML = '<p>Error loading chat</p>';
+                if (onLoadComplete) onLoadComplete(false);
+            });
+    },
+
     loadChat: function(friendId, friendName, profilePictureUrl = null, onLoadComplete = null, matchId = null) {
         // Show loading state
         this.emptyState.classList.add('d-none');
         this.chatContent.classList.remove('d-none');
         this.currentFriendId = friendId;
         this.currentMatchId = matchId;
+        this.currentGroupId = null;
+        this.chatType = matchId ? 'match' : 'direct';
+        this.isCreator = false;
 
         document.getElementById('chatFriendName').textContent = 'Loading...';
+        
+        // Show profile picture and report button for direct chats/matches
+        document.querySelector('.chat-header .profile-image-wrapper').classList.remove('d-none');
+        document.getElementById('headerReportBtn').classList.remove('d-none');
 
         if (profilePictureUrl) {
             document.getElementById('chatProfilePicture').src = profilePictureUrl;
@@ -261,10 +463,13 @@ const ChatManager = {
         .then(data => {
             const messagesContainer = document.getElementById('messagesContainer');
 
-            if (!data.messages) return;
+            if (!data.messages) {
+                messagesContainer.innerHTML = '<p class="no-messages">Error loading messages</p>';
+                return;
+            }
 
             // Optional optimization: avoid full redraw if nothing changed
-            if (this.lastMessageCount === data.messages.length) {
+            if (this.lastMessageCount !== undefined && this.lastMessageCount === data.messages.length && data.messages.length > 0) {
                 return;
             }
 
@@ -281,6 +486,11 @@ const ChatManager = {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `message ${msg.sender_id == this.currentUserId ? 'sent' : 'received'}`;
 
+                let senderName = '';
+                if (this.chatType === 'group' && msg.sender_id != this.currentUserId) {
+                    senderName = `<div class="message-sender-name">${this.escapeHtml(msg.first_name + ' ' + msg.last_name)}</div>`;
+                }
+
                 let reportButton = '';
                 if (msg.sender_id != this.currentUserId) {
                     reportButton = `<button type="button" class="message-report-btn" data-message-id="${msg.message_id}" data-message-content="${this.escapeHtml(msg.content)}" title="Report this message">
@@ -289,6 +499,7 @@ const ChatManager = {
                 }
 
                 messageDiv.innerHTML = `
+                    ${senderName}
                     <div class="message-wrapper">
                         <div class="message-content">${this.escapeHtml(msg.content)}</div>
                     </div>
@@ -345,7 +556,7 @@ const ChatManager = {
             if (data.success) {
                 this.loadMessages();
             } else {
-                alert('Error: ' + (data.error || 'Failed to send message'));
+                showToast('Error: ' + (data.error || 'Failed to send message'), 'error');
                 this.messageInput.value = content; // Restore message
             }
         })
@@ -401,11 +612,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const wordCount = document.getElementById('wordCount');
     const form = document.getElementById('reportForm');
     const reportModal = document.getElementById('reportModal');
-    const reportHeaderBtn = document.querySelector('.report-btn');
+    const headerReportBtn = document.getElementById('headerReportBtn');
 
     // Clear selected message when header report button is clicked
-    if (reportHeaderBtn) {
-        reportHeaderBtn.addEventListener('click', function() {
+    if (headerReportBtn) {
+        headerReportBtn.addEventListener('click', function() {
             ChatManager.selectedMessageId = null;
         });
     }
@@ -562,12 +773,19 @@ document.addEventListener('DOMContentLoaded', function () {
     const settingsModal = document.getElementById('settingsModal');
     const removeFriendBtn = document.getElementById('removeFriendBtn');
     const unmatchBtn = document.getElementById('unmatchBtn');
+    const leaveGroupBtn = document.getElementById('leaveGroupBtn');
+    const deleteGroupBtn = document.getElementById('deleteGroupBtn');
+    const kickUsersBtn = document.getElementById('kickUsersBtn');
     const blockUserBtn = document.getElementById('blockUserBtn');
     const settingsGeneralMessage = document.getElementById('settingsGeneralMessage');
     const settingsLoading = document.getElementById('settingsLoading');
     const settingsContent = document.getElementById('settingsContent');
     const settingsManageText = document.getElementById('settingsManageText');
     const removeFriendText = document.getElementById('removeFriendText');
+    const friendMatchActions = document.getElementById('friendMatchActions');
+    const groupActions = document.getElementById('groupActions');
+    const deleteGroupText = document.getElementById('deleteGroupText');
+    const kickUsersText = document.getElementById('kickUsersText');
 
     function showSettingsMessage(message, isError = true) {
         settingsGeneralMessage.textContent = message;
@@ -596,17 +814,41 @@ document.addEventListener('DOMContentLoaded', function () {
         settingsGeneralMessage.classList.add('d-none');
         showSettingsLoading(false);
 
-        // Show context-appropriate buttons
-        if (ChatManager.contextType === 'matches') {
-            removeFriendBtn.classList.add('d-none');
-            unmatchBtn.classList.remove('d-none');
-            settingsManageText.textContent = 'Manage your match';
-            removeFriendText.textContent = 'You will no longer see this match';
+        if (ChatManager.chatType === 'group') {
+            // Show group-specific options
+            friendMatchActions.classList.add('d-none');
+            groupActions.classList.remove('d-none');
+            settingsManageText.textContent = 'Manage group';
+            headerReportBtn.classList.add('d-none');
+
+            if (ChatManager.isCreator) {
+                deleteGroupBtn.classList.remove('d-none');
+                deleteGroupText.classList.remove('d-none');
+                kickUsersBtn.classList.remove('d-none');
+                kickUsersText.classList.remove('d-none');
+            } else {
+                deleteGroupBtn.classList.add('d-none');
+                deleteGroupText.classList.add('d-none');
+                kickUsersBtn.classList.add('d-none');
+                kickUsersText.classList.add('d-none');
+            }
         } else {
-            removeFriendBtn.classList.remove('d-none');
-            unmatchBtn.classList.add('d-none');
-            settingsManageText.textContent = 'Manage your friendship';
-            removeFriendText.textContent = 'You will no longer be friends with this user';
+            // Show friend/match options
+            groupActions.classList.add('d-none');
+            friendMatchActions.classList.remove('d-none');
+            headerReportBtn.classList.remove('d-none');
+
+            if (ChatManager.contextType === 'matches') {
+                removeFriendBtn.classList.add('d-none');
+                unmatchBtn.classList.remove('d-none');
+                settingsManageText.textContent = 'Manage your match';
+                removeFriendText.textContent = 'You will no longer see this match';
+            } else {
+                removeFriendBtn.classList.remove('d-none');
+                unmatchBtn.classList.add('d-none');
+                settingsManageText.textContent = 'Manage your friendship';
+                removeFriendText.textContent = 'You will no longer be friends with this user';
+            }
         }
     });
 
@@ -726,6 +968,202 @@ document.addEventListener('DOMContentLoaded', function () {
             console.error(err);
             showSettingsMessage('Error blocking user', true);
             showSettingsLoading(false);
+        });
+    });
+
+    // Leave group
+    leaveGroupBtn.addEventListener('click', function () {
+        if (!ChatManager.currentGroupId) {
+            showSettingsMessage('No group selected');
+            return;
+        }
+
+        showConfirmation('Are you sure you want to leave this group?', function () {
+            showSettingsLoading(true);
+
+            const formData = new FormData();
+            formData.append('action', 'leave_group');
+            formData.append('group_id', ChatManager.currentGroupId);
+
+            fetch('/features/chats/chat-api.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showSettingsMessage('Left group successfully', false);
+                    setTimeout(() => {
+                        const modal = bootstrap.Modal.getInstance(settingsModal);
+                        modal.hide();
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    showSettingsMessage(data.error || 'Failed to leave group', true);
+                    showSettingsLoading(false);
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showSettingsMessage('Error leaving group', true);
+                showSettingsLoading(false);
+            });
+        });
+    });
+
+    // Delete group (creator only)
+    deleteGroupBtn.addEventListener('click', function () {
+        if (!ChatManager.currentGroupId) {
+            showSettingsMessage('No group selected');
+            return;
+        }
+
+        showConfirmation('Are you sure you want to delete this group? This cannot be undone.', function () {
+            showSettingsLoading(true);
+
+            const formData = new FormData();
+            formData.append('action', 'delete_group');
+            formData.append('group_id', ChatManager.currentGroupId);
+
+            fetch('/features/chats/chat-api.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error('Network response was not ok: ' + res.status);
+                }
+                return res.json();
+            })
+            .then(data => {
+                console.log('Delete group response:', data);
+                if (data.success) {
+                    showSettingsMessage('Group deleted successfully', false);
+                    setTimeout(() => {
+                        const modal = bootstrap.Modal.getInstance(settingsModal);
+                        if (modal) {
+                            modal.hide();
+                        }
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    showSettingsMessage(data.error || 'Failed to delete group', true);
+                    showSettingsLoading(false);
+                }
+            })
+            .catch(err => {
+                console.error('Error deleting group:', err);
+                showSettingsMessage('Error: ' + err.message, true);
+                showSettingsLoading(false);
+            });
+        });
+    });
+
+    // Kick users button
+    kickUsersBtn.addEventListener('click', function () {
+        if (!ChatManager.currentGroupId) {
+            showSettingsMessage('No group selected');
+            return;
+        }
+
+        // Close settings modal and open kick users modal
+        const settingsModalInstance = bootstrap.Modal.getInstance(settingsModal);
+        settingsModalInstance.hide();
+
+        // Show loading and fetch members
+        const kickModal = new bootstrap.Modal(document.getElementById('kickUsersModal'));
+        const kickMembersContainer = document.getElementById('kickMembersContainer');
+        const kickLoading = document.getElementById('kickLoading');
+        const kickError = document.getElementById('kickError');
+
+        kickLoading.classList.remove('d-none');
+        kickMembersContainer.innerHTML = '';
+        kickError.classList.add('d-none');
+
+        fetch(`/features/chats/chat-api.php?action=get_group_members&group_id=${ChatManager.currentGroupId}`)
+            .then(res => res.json())
+            .then(data => {
+                kickLoading.classList.add('d-none');
+
+                if (data.error) {
+                    kickError.textContent = data.error;
+                    kickError.classList.remove('d-none');
+                    return;
+                }
+
+                if (!data.members || data.members.length === 0) {
+                    kickMembersContainer.innerHTML = '<p class="text-muted">No members to remove</p>';
+                    return;
+                }
+
+                // Render member checkboxes (exclude current user)
+                kickMembersContainer.innerHTML = '';
+                data.members.forEach(member => {
+                    if (member.user_id !== ChatManager.currentUserId) {
+                        const memberDiv = document.createElement('div');
+                        memberDiv.className = 'form-check mb-2';
+                        memberDiv.innerHTML = `
+                            <input class="form-check-input member-kick-checkbox" type="checkbox" value="${member.user_id}" id="member${member.user_id}">
+                            <label class="form-check-label" for="member${member.user_id}">
+                                ${ChatManager.escapeHtml(member.first_name + ' ' + member.last_name)}
+                            </label>
+                        `;
+                        kickMembersContainer.appendChild(memberDiv);
+                    }
+                });
+            })
+            .catch(err => {
+                console.error(err);
+                kickLoading.classList.add('d-none');
+                kickError.textContent = 'Error loading members';
+                kickError.classList.remove('d-none');
+            });
+
+        kickModal.show();
+    });
+
+    // Confirm kick users
+    document.getElementById('confirmKickBtn').addEventListener('click', function () {
+        const selectedMembers = Array.from(document.querySelectorAll('.member-kick-checkbox:checked')).map(cb => parseInt(cb.value));
+
+        if (selectedMembers.length === 0) {
+            showToast('Please select at least one member to remove', 'error');
+            return;
+        }
+
+        showConfirmation('Are you sure you want to remove the selected members?', function () {
+            const kickError = document.getElementById('kickError');
+            kickError.classList.add('d-none');
+
+            // Kick each selected member
+            Promise.all(selectedMembers.map(memberId => {
+                const formData = new FormData();
+                formData.append('action', 'kick_user');
+                formData.append('group_id', ChatManager.currentGroupId);
+                formData.append('member_id', memberId);
+
+                return fetch('/features/chats/chat-api.php', {
+                    method: 'POST',
+                    body: formData
+                }).then(res => res.json());
+            }))
+            .then(results => {
+                const hasError = results.some(r => !r.success);
+                if (hasError) {
+                    kickError.textContent = 'Failed to remove some members';
+                    kickError.classList.remove('d-none');
+                } else {
+                    const kickModal = bootstrap.Modal.getInstance(document.getElementById('kickUsersModal'));
+                    kickModal.hide();
+                    showToast('Members removed successfully', 'success');
+                    window.location.reload();
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                kickError.textContent = 'Error removing members';
+                kickError.classList.remove('d-none');
+            });
         });
     });
 

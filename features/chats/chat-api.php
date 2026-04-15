@@ -73,7 +73,41 @@ if ($action === 'get_messages') {
         exit;
     }
 
-    // Verify user is part of this chat (via friendship)
+    // Verify user has access to this chat
+    // Check if it's a group chat first
+    $chatTypeStmt = $conn->prepare("SELECT chat_type FROM Chats WHERE chat_id = ?");
+    $chatTypeStmt->bind_param('i', $chat_id);
+    $chatTypeStmt->execute();
+    $chatTypeResult = $chatTypeStmt->get_result();
+    
+    if ($chatTypeResult->num_rows === 0) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Chat not found']);
+        $chatTypeStmt->close();
+        exit;
+    }
+    
+    $chatType = $chatTypeResult->fetch_assoc()['chat_type'];
+    $chatTypeStmt->close();
+    
+    // Verify user access based on chat type
+    if ($chatType === 'group') {
+        // For group chats, verify user is a member
+        $accessStmt = $conn->prepare("
+            SELECT chat_id FROM Chat_Members 
+            WHERE chat_id = ? AND user_id = ? AND left_at IS NULL
+        ");
+        $accessStmt->bind_param('ii', $chat_id, $current_user_id);
+        $accessStmt->execute();
+        if ($accessStmt->get_result()->num_rows === 0) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Access denied']);
+            $accessStmt->close();
+            exit;
+        }
+        $accessStmt->close();
+    }
+
     $stmt = $conn->prepare("
         SELECT m.message_id, m.sender_id, u.user_id, up.first_name, up.last_name,
                m.content, m.sent_at, m.is_removed
@@ -342,6 +376,383 @@ if ($action === 'block_user' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $conn->rollback();
         http_response_code(500);
         echo json_encode(['error' => 'Failed to block user']);
+    }
+
+    exit;
+}
+
+// Get group chat details
+if ($action === 'get_group_chat') {
+    $group_id = (int) ($_GET['group_id'] ?? 0);
+    
+    if (!$group_id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'group_id required']);
+        exit;
+    }
+
+    // Verify user is member of this group
+    $stmt = $conn->prepare("
+        SELECT c.chat_id, c.group_name, c.created_by
+        FROM Chats c
+        JOIN Chat_Members cm ON c.chat_id = cm.chat_id
+        WHERE c.chat_id = ? AND cm.user_id = ? AND c.chat_type = 'group'
+    ");
+    $stmt->bind_param('ii', $group_id, $current_user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows === 0) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Group not found']);
+        $stmt->close();
+        exit;
+    }
+
+    $group = $result->fetch_assoc();
+    $stmt->close();
+
+    echo json_encode([
+        'chat_id' => $group['chat_id'],
+        'is_creator' => ($group['created_by'] == $current_user_id)
+    ]);
+    exit;
+}
+
+// Get group members
+if ($action === 'get_group_members') {
+    $group_id = (int) ($_GET['group_id'] ?? 0);
+    
+    if (!$group_id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'group_id required']);
+        exit;
+    }
+
+    // Verify user is member of this group
+    $verifyStmt = $conn->prepare("
+        SELECT cm.chat_id FROM Chat_Members cm
+        JOIN Chats c ON cm.chat_id = c.chat_id
+        WHERE c.chat_id = ? AND cm.user_id = ? AND c.chat_type = 'group' AND cm.left_at IS NULL
+    ");
+    $verifyStmt->bind_param('ii', $group_id, $current_user_id);
+    $verifyStmt->execute();
+    
+    if ($verifyStmt->get_result()->num_rows === 0) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Access denied']);
+        $verifyStmt->close();
+        exit;
+    }
+    $verifyStmt->close();
+
+    // Fetch group members
+    $stmt = $conn->prepare("
+        SELECT u.user_id, up.first_name, up.last_name
+        FROM Chat_Members cm
+        JOIN Users u ON cm.user_id = u.user_id
+        JOIN User_Profile up ON u.user_id = up.user_id
+        WHERE cm.chat_id = ? AND cm.left_at IS NULL
+        ORDER BY up.first_name ASC
+    ");
+    $stmt->bind_param('i', $group_id);
+    $stmt->execute();
+    $members = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+
+    echo json_encode(['members' => $members]);
+    exit;
+}
+
+// Kick user from group (creator only)
+if ($action === 'kick_user' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $group_id = (int) ($_POST['group_id'] ?? 0);
+    $member_id = (int) ($_POST['member_id'] ?? 0);
+
+    if (!$group_id || !$member_id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'group_id and member_id required']);
+        exit;
+    }
+
+    // Verify current user is creator
+    $creatorStmt = $conn->prepare("SELECT created_by FROM Chats WHERE chat_id = ? AND chat_type = 'group'");
+    $creatorStmt->bind_param('i', $group_id);
+    $creatorStmt->execute();
+    $creatorResult = $creatorStmt->get_result();
+
+    if ($creatorResult->num_rows === 0) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Group not found']);
+        $creatorStmt->close();
+        exit;
+    }
+
+    $group = $creatorResult->fetch_assoc();
+    $creatorStmt->close();
+
+    if ($group['created_by'] != $current_user_id) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Only group creator can kick members']);
+        exit;
+    }
+
+    // Cannot kick creator
+    if ($member_id === $group['created_by']) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Cannot kick group creator']);
+        exit;
+    }
+
+    // Mark member as left
+    $stmt = $conn->prepare("
+        UPDATE Chat_Members SET left_at = UTC_TIMESTAMP()
+        WHERE chat_id = ? AND user_id = ?
+    ");
+    $stmt->bind_param('ii', $group_id, $member_id);
+
+    if ($stmt->execute()) {
+        echo json_encode(['success' => true]);
+    } else {
+        http_response_code(500);
+        echo json_encode(['error' => 'Failed to remove member']);
+    }
+    $stmt->close();
+    exit;
+}
+
+// Leave a group
+if ($action === 'leave_group' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $group_id = (int) ($_POST['group_id'] ?? 0);
+
+    if (!$group_id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'group_id required']);
+        exit;
+    }
+
+    // Verify user is member and not creator
+    $stmt = $conn->prepare("
+        SELECT c.created_by FROM Chats c
+        JOIN Chat_Members cm ON c.chat_id = cm.chat_id
+        WHERE c.chat_id = ? AND cm.user_id = ? AND c.chat_type = 'group'
+    ");
+    $stmt->bind_param('ii', $group_id, $current_user_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows === 0) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Group not found']);
+        $stmt->close();
+        exit;
+    }
+
+    $group = $result->fetch_assoc();
+    $stmt->close();
+
+    if ($group['created_by'] == $current_user_id) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Creator cannot leave - delete the group instead']);
+        exit;
+    }
+
+    // Mark user as left
+    $stmt = $conn->prepare("
+        UPDATE Chat_Members SET left_at = UTC_TIMESTAMP()
+        WHERE chat_id = ? AND user_id = ?
+    ");
+    $stmt->bind_param('ii', $group_id, $current_user_id);
+
+    if ($stmt->execute()) {
+        echo json_encode(['success' => true]);
+    } else {
+        http_response_code(500);
+        echo json_encode(['error' => 'Failed to leave group']);
+    }
+    $stmt->close();
+    exit;
+}
+
+// Delete a group (creator only)
+if ($action === 'delete_group' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $group_id = (int) ($_POST['group_id'] ?? 0);
+
+    if (!$group_id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'group_id required']);
+        exit;
+    }
+
+    // Verify user is creator
+    $stmt = $conn->prepare("SELECT created_by FROM Chats WHERE chat_id = ? AND chat_type = 'group'");
+    if (!$stmt) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database error: ' . $conn->error]);
+        exit;
+    }
+    
+    $stmt->bind_param('i', $group_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows === 0) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Group not found']);
+        $stmt->close();
+        exit;
+    }
+
+    $group = $result->fetch_assoc();
+    $stmt->close();
+
+    if ($group['created_by'] != $current_user_id) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Only creator can delete group']);
+        exit;
+    }
+
+    // Delete the group (and all related data)
+    try {
+        // Disable foreign key checks temporarily
+        $conn->query("SET FOREIGN_KEY_CHECKS=0");
+        
+        $conn->begin_transaction();
+
+        // Delete messages first
+        $stmt = $conn->prepare("DELETE FROM Messages WHERE chat_id = ?");
+        if (!$stmt) {
+            throw new Exception("Prepare failed for Messages delete: " . $conn->error);
+        }
+        $stmt->bind_param('i', $group_id);
+        if (!$stmt->execute()) {
+            throw new Exception("Delete Messages failed: " . $stmt->error);
+        }
+        $stmt->close();
+
+        // Delete chat members
+        $stmt = $conn->prepare("DELETE FROM Chat_Members WHERE chat_id = ?");
+        if (!$stmt) {
+            throw new Exception("Prepare failed for Chat_Members delete: " . $conn->error);
+        }
+        $stmt->bind_param('i', $group_id);
+        if (!$stmt->execute()) {
+            throw new Exception("Delete Chat_Members failed: " . $stmt->error);
+        }
+        $stmt->close();
+
+        // Delete the group
+        $stmt = $conn->prepare("DELETE FROM Chats WHERE chat_id = ?");
+        if (!$stmt) {
+            throw new Exception("Prepare failed for Chats delete: " . $conn->error);
+        }
+        $stmt->bind_param('i', $group_id);
+        if (!$stmt->execute()) {
+            throw new Exception("Delete Chats failed: " . $stmt->error);
+        }
+        $stmt->close();
+
+        $conn->commit();
+        
+        // Re-enable foreign key checks
+        $conn->query("SET FOREIGN_KEY_CHECKS=1");
+        
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) {
+        $conn->rollback();
+        // Re-enable foreign key checks
+        $conn->query("SET FOREIGN_KEY_CHECKS=1");
+        
+        http_response_code(500);
+        echo json_encode(['error' => $e->getMessage()]);
+    }
+    exit;
+}
+
+// Create group chat
+if ($action === 'create_group' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $group_name = clean_input($_POST['group_name'] ?? '');
+    $member_ids_json = $_POST['member_ids'] ?? '[]';
+    $member_ids = json_decode($member_ids_json, true);
+
+    if (!$group_name || empty($member_ids)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Group name and members are required']);
+        exit;
+    }
+
+    // Validate group name length
+    if (strlen($group_name) < 2 || strlen($group_name) > 100) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Group name must be between 2 and 100 characters']);
+        exit;
+    }
+
+    // Validate all members are actual friends of current user
+    $placeholders = implode(',', array_fill(0, count($member_ids), '?'));
+    $types = str_repeat('i', count($member_ids));
+    
+    $stmt = $conn->prepare("
+        SELECT COUNT(*) as count FROM Friendship 
+        WHERE (user_id = ? OR friend_id = ?) 
+        AND ((user_id IN ($placeholders) OR friend_id IN ($placeholders)))
+        AND status = 'accepted'
+    ");
+    
+    $params = array_merge([$current_user_id, $current_user_id], $member_ids, $member_ids);
+    $paramTypes = 'ii' . $types . $types;
+    $stmt->bind_param($paramTypes, ...$params);
+    $stmt->execute();
+    $result = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if ($result['count'] != count($member_ids)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid members - make sure all are your friends']);
+        exit;
+    }
+
+    try {
+        $conn->begin_transaction();
+
+        // Create group chat
+        $stmt = $conn->prepare("
+            INSERT INTO Chats (chat_type, group_name, created_by, created_at)
+            VALUES ('group', ?, ?, UTC_TIMESTAMP())
+        ");
+        $group_type = 'group';
+        $stmt->bind_param('si', $group_name, $current_user_id);
+        $stmt->execute();
+        $chat_id = $stmt->insert_id;
+        $stmt->close();
+
+        // Add creator as admin
+        $stmt = $conn->prepare("
+            INSERT INTO Chat_Members (chat_id, user_id, role, joined_at)
+            VALUES (?, ?, 'admin', UTC_TIMESTAMP())
+        ");
+        $stmt->bind_param('ii', $chat_id, $current_user_id);
+        $stmt->execute();
+        $stmt->close();
+
+        // Add other members
+        $stmt = $conn->prepare("
+            INSERT INTO Chat_Members (chat_id, user_id, role, joined_at)
+            VALUES (?, ?, 'member', UTC_TIMESTAMP())
+        ");
+        $stmt->bind_param('ii', $chat_id, $member_id);
+        
+        foreach ($member_ids as $member_id) {
+            $stmt->execute();
+        }
+        $stmt->close();
+
+        $conn->commit();
+        echo json_encode(['success' => true, 'chat_id' => $chat_id]);
+    } catch (Exception $e) {
+        $conn->rollback();
+        http_response_code(500);
+        echo json_encode(['error' => 'Failed to create group']);
     }
 
     exit;
