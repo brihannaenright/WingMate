@@ -64,6 +64,14 @@ if (!defined('CHAT_UI_INCLUDED')) {
                     </div>
 
                     <div class="modal-body">
+                        <!-- General error message -->
+                        <div id="reportGeneralError" class="alert alert-wingmate d-none" role="alert"></div>
+
+                        <!-- Flagged message display -->
+                        <div id="reportFlaggedMessage" class="alert alert-wingmate d-none mb-3" role="alert">
+                            <strong>Reporting message:</strong>
+                            <p id="flaggedMessageContent" style="margin-top: 8px; margin-bottom: 0;"></p>
+                        </div>
 
                         <!-- Reason dropdown -->
                         <div class="mb-3">
@@ -78,22 +86,25 @@ if (!defined('CHAT_UI_INCLUDED')) {
                                 <option value="hate_speech">Hate Speech</option>
                                 <option value="other">Other</option>
                             </select>
+                            <div id="reportReasonError" class="field-error d-none"><span class="error-icon">!</span><span id="reportReasonErrorText"></span></div>
                         </div>
 
                         <!-- Other reason input (hidden by default) -->
                         <div class="mb-3 d-none" id="otherReasonWrapper">
                             <label class="form-label">Specify Reason</label>
                             <input type="text" id="customReason" class="form-control" placeholder="Enter reason">
+                            <div id="customReasonError" class="field-error d-none"><span class="error-icon">!</span><span id="customReasonErrorText"></span></div>
                         </div>
 
                         <!-- Details -->
                         <div class="mb-2">
-                            <label class="form-label">Details (max 200 words)</label>
+                            <label class="form-label">Details (max 50 words)</label>
                             <textarea id="reportDetails" class="form-control" rows="4"
                                 placeholder="Describe the issue..."></textarea>
                             <small class="text-muted">
-                                <span id="wordCount">0</span>/200 words
+                                <span id="wordCount">0</span>/50 words
                             </small>
+                            <div id="reportDetailsError" class="field-error d-none"><span class="error-icon">!</span><span id="reportDetailsErrorText"></span></div>
                         </div>
 
                     </div>
@@ -104,6 +115,45 @@ if (!defined('CHAT_UI_INCLUDED')) {
 
                 </form>
 
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Dialog -->
+    <div class="modal fade" id="settingsModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Settings</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <!-- General error/success message -->
+                    <div id="settingsGeneralMessage" class="alert alert-wingmate d-none" role="alert"></div>
+
+                    <!-- Loading state -->
+                    <div id="settingsLoading" class="text-center d-none">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+
+                    <!-- Settings content -->
+                    <div id="settingsContent" class="d-none">
+                        <p class="text-muted mb-3">Manage your friendship</p>
+                        
+                        <button type="button" id="removeFriendBtn" class="btn remove-button w-100 mb-2">
+                            Remove as Friend
+                        </button>
+                        <small class="text-muted d-block mb-3">You will no longer be friends with this user</small>
+
+                        <button type="button" id="blockUserBtn" class="btn block-button w-100">
+                            Block User
+                        </button>
+                        <small class="text-muted d-block">They won't be able to request your friendship or view your profile</small>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -120,6 +170,7 @@ const ChatManager = {
     messagePoller: null,
     currentFriendId: null,
     lastMessageCount: 0,
+    selectedMessageId: null,
 
     // Initialises chat manager with current user ID and sets up event listeners
     init: function(userId) {
@@ -222,12 +273,35 @@ const ChatManager = {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `message ${msg.sender_id == this.currentUserId ? 'sent' : 'received'}`;
 
+                let reportButton = '';
+                if (msg.sender_id != this.currentUserId) {
+                    reportButton = `<button type="button" class="message-report-btn" data-message-id="${msg.message_id}" data-message-content="${this.escapeHtml(msg.content)}" title="Report this message">
+                        <img src="/assets/images/flag-icon.svg" alt="Report">
+                    </button>`;
+                }
+
                 messageDiv.innerHTML = `
-                    <div class="message-content">${this.escapeHtml(msg.content)}</div>
-                    <span class="message-time">${this.formatTime(msg.sent_at)}</span>
+                    <div class="message-wrapper">
+                        <div class="message-content">${this.escapeHtml(msg.content)}</div>
+                    </div>
+                    <div class="message-footer">
+                        <span class="message-time">${this.formatTime(msg.sent_at)}</span>
+                        ${reportButton}
+                    </div>
                 `;
 
                 messagesContainer.appendChild(messageDiv);
+            });
+
+            // Add event listeners to report buttons
+            document.querySelectorAll('.message-report-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const messageId = btn.getAttribute('data-message-id');
+                    const messageContent = btn.getAttribute('data-message-content');
+                    ChatManager.openReportWithMessage(messageId, messageContent);
+                });
             });
 
             // Auto-scroll only if user is near bottom (prevents scroll fighting)
@@ -292,6 +366,21 @@ const ChatManager = {
         } else {
             return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         }
+    },
+
+    openReportWithMessage: function(messageId, messageContent) {
+        this.selectedMessageId = messageId;
+        
+        // Show the flagged message in the modal
+        const flaggedMessageDiv = document.getElementById('reportFlaggedMessage');
+        if (flaggedMessageDiv) {
+            flaggedMessageDiv.classList.remove('d-none');
+            document.getElementById('flaggedMessageContent').textContent = messageContent;
+        }
+
+        // Open the report modal
+        const modal = new bootstrap.Modal(document.getElementById('reportModal'));
+        modal.show();
     }
 };
 
@@ -303,6 +392,60 @@ document.addEventListener('DOMContentLoaded', function () {
     const details = document.getElementById('reportDetails');
     const wordCount = document.getElementById('wordCount');
     const form = document.getElementById('reportForm');
+    const reportModal = document.getElementById('reportModal');
+    const reportHeaderBtn = document.querySelector('.report-btn');
+
+    // Clear selected message when header report button is clicked
+    if (reportHeaderBtn) {
+        reportHeaderBtn.addEventListener('click', function() {
+            ChatManager.selectedMessageId = null;
+        });
+    }
+
+    // Function to clear all errors
+    function clearReportErrors() {
+        document.getElementById('reportGeneralError').classList.add('d-none');
+        document.getElementById('reportGeneralError').textContent = '';
+        
+        document.getElementById('reportReasonError').classList.add('d-none');
+        document.getElementById('customReasonError').classList.add('d-none');
+        document.getElementById('reportDetailsError').classList.add('d-none');
+    }
+
+    // Function to display error message
+    function showError(elementId, message) {
+        const errorElement = document.getElementById(elementId);
+        if (errorElement) {
+            errorElement.classList.remove('d-none');
+            const textElement = errorElement.querySelector('span:last-child');
+            if (textElement) {
+                textElement.textContent = message;
+            }
+        }
+    }
+
+    // Function to display general error
+    function showGeneralError(message) {
+        const errorElement = document.getElementById('reportGeneralError');
+        errorElement.textContent = message;
+        errorElement.classList.remove('d-none');
+    }
+
+    // Clear errors when modal opens
+    reportModal.addEventListener('show.bs.modal', function () {
+        clearReportErrors();
+        
+        // If no specific message is selected (opening from header button), hide flagged message display
+        if (!ChatManager.selectedMessageId) {
+            document.getElementById('reportFlaggedMessage').classList.add('d-none');
+            document.getElementById('flaggedMessageContent').textContent = '';
+        }
+    });
+
+    // Reset selected message when modal closes
+    reportModal.addEventListener('hide.bs.modal', function () {
+        ChatManager.selectedMessageId = null;
+    });
 
     // Show/hide "Other"
     reasonSelect.addEventListener('change', function () {
@@ -314,29 +457,35 @@ document.addEventListener('DOMContentLoaded', function () {
             customReason.removeAttribute('required');
             customReason.value = '';
         }
+        // Clear reason error when user selects
+        document.getElementById('reportReasonError').classList.add('d-none');
     });
 
-    // Word counter (max 200 words)
+    // Word counter (max 50 words)
     details.addEventListener('input', function () {
         let words = this.value.trim().split(/\s+/).filter(w => w.length > 0);
 
-        if (words.length > 200) {
-            this.value = words.slice(0, 200).join(' ');
-            words = words.slice(0, 200);
+        if (words.length > 50) {
+            this.value = words.slice(0, 50).join(' ');
+            words = words.slice(0, 50);
         }
 
         wordCount.textContent = words.length;
+        // Clear details error when user types
+        document.getElementById('reportDetailsError').classList.add('d-none');
     });
 
     // Submit report
     form.addEventListener('submit', function (e) {
         e.preventDefault();
+        
+        clearReportErrors();
 
         const reporterId = ChatManager.currentUserId;
         const reportedId = ChatManager.currentFriendId;
 
         if (!reportedId) {
-            alert('No user selected');
+            showGeneralError('No user selected');
             return;
         }
 
@@ -345,7 +494,13 @@ document.addEventListener('DOMContentLoaded', function () {
             : reasonSelect.value;
 
         if (!reasonValue) {
-            alert('Please select a reason');
+            showError('reportReasonError', 'Please select a reason');
+            return;
+        }
+
+        const detailsValue = details.value.trim();
+        if (!detailsValue) {
+            showError('reportDetailsError', 'Please provide details for your report');
             return;
         }
 
@@ -354,7 +509,11 @@ document.addEventListener('DOMContentLoaded', function () {
         formData.append('reporter_id', reporterId);
         formData.append('reported_id', reportedId);
         formData.append('reason', reasonValue);
-        formData.append('details', details.value.trim());
+        formData.append('details', detailsValue);
+        
+        if (ChatManager.selectedMessageId) {
+            formData.append('message_id', ChatManager.selectedMessageId);
+        }
 
         fetch('/features/chats/chat-api.php', {
             method: 'POST',
@@ -363,20 +522,147 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                alert('Report submitted successfully');
+                // Show success message
+                showGeneralError('Report submitted successfully');
+                
+                // Reset form
                 form.reset();
                 wordCount.textContent = '0';
                 otherWrapper.classList.add('d-none');
+                
+                // Reset selected message
+                ChatManager.selectedMessageId = null;
+                document.getElementById('reportFlaggedMessage').classList.add('d-none');
+                document.getElementById('flaggedMessageContent').textContent = '';
 
-                const modal = bootstrap.Modal.getInstance(document.getElementById('reportModal'));
-                modal.hide();
+                // Close modal after a short delay
+                setTimeout(() => {
+                    const modal = bootstrap.Modal.getInstance(reportModal);
+                    modal.hide();
+                }, 1500);
             } else {
-                alert(data.error || 'Failed to submit report');
+                showGeneralError(data.error || 'Failed to submit report');
             }
         })
         .catch(err => {
             console.error(err);
-            alert('Error submitting report');
+            showGeneralError('Error submitting report. Please try again.');
+        });
+    });
+
+    // Settings Modal Handlers
+    const settingsModal = document.getElementById('settingsModal');
+    const removeFriendBtn = document.getElementById('removeFriendBtn');
+    const blockUserBtn = document.getElementById('blockUserBtn');
+    const settingsGeneralMessage = document.getElementById('settingsGeneralMessage');
+    const settingsLoading = document.getElementById('settingsLoading');
+    const settingsContent = document.getElementById('settingsContent');
+
+    function showSettingsMessage(message, isError = true) {
+        settingsGeneralMessage.textContent = message;
+        settingsGeneralMessage.classList.remove('d-none');
+        if (isError) {
+            settingsGeneralMessage.classList.add('alert-danger');
+            settingsGeneralMessage.classList.remove('alert-success');
+        } else {
+            settingsGeneralMessage.classList.add('alert-success');
+            settingsGeneralMessage.classList.remove('alert-danger');
+        }
+    }
+
+    function showSettingsLoading(show) {
+        if (show) {
+            settingsLoading.classList.remove('d-none');
+            settingsContent.classList.add('d-none');
+        } else {
+            settingsLoading.classList.add('d-none');
+            settingsContent.classList.remove('d-none');
+        }
+    }
+
+    // Reset settings modal when opening
+    settingsModal.addEventListener('show.bs.modal', function () {
+        settingsGeneralMessage.classList.add('d-none');
+        showSettingsLoading(false);
+    });
+
+    // Remove friend
+    removeFriendBtn.addEventListener('click', function () {
+        if (!ChatManager.currentFriendId) {
+            showSettingsMessage('No user selected');
+            return;
+        }
+
+        showSettingsLoading(true);
+
+        const formData = new FormData();
+        formData.append('action', 'remove_friend');
+        formData.append('user_id', ChatManager.currentUserId);
+        formData.append('friend_id', ChatManager.currentFriendId);
+
+        fetch('/features/chats/chat-api.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                showSettingsMessage('Friend removed successfully', false);
+                setTimeout(() => {
+                    const modal = bootstrap.Modal.getInstance(settingsModal);
+                    modal.hide();
+                    // Reload friends list or navigate away
+                    window.location.reload();
+                }, 1500);
+            } else {
+                showSettingsMessage(data.error || 'Failed to remove friend', true);
+                showSettingsLoading(false);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showSettingsMessage('Error removing friend', true);
+            showSettingsLoading(false);
+        });
+    });
+
+    // Block user
+    blockUserBtn.addEventListener('click', function () {
+        if (!ChatManager.currentFriendId) {
+            showSettingsMessage('No user selected');
+            return;
+        }
+
+        showSettingsLoading(true);
+
+        const formData = new FormData();
+        formData.append('action', 'block_user');
+        formData.append('user_id', ChatManager.currentUserId);
+        formData.append('blocked_id', ChatManager.currentFriendId);
+
+        fetch('/features/chats/chat-api.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                showSettingsMessage('User blocked successfully', false);
+                setTimeout(() => {
+                    const modal = bootstrap.Modal.getInstance(settingsModal);
+                    modal.hide();
+                    // Reload friends list or navigate away
+                    window.location.reload();
+                }, 1500);
+            } else {
+                showSettingsMessage(data.error || 'Failed to block user', true);
+                showSettingsLoading(false);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showSettingsMessage('Error blocking user', true);
+            showSettingsLoading(false);
         });
     });
 

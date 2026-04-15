@@ -132,13 +132,14 @@ if ($action === 'send_message' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 if ($action === 'report_user' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $reporter_id = (int) ($current_user_id ?? 0);
-    $reported_id = (int) ($_POST['reported_id'] ?? 0);
-    $reason = trim($_POST['reason'] ?? '');
-    $details = trim($_POST['details'] ?? '');
+    $reported_id = (int) (clean_input($_POST['reported_id'] ?? 0));
+    $reason = clean_input($_POST['reason'] ?? '');
+    $details = clean_input($_POST['details'] ?? '');
+    $message_id = !empty($_POST['message_id']) ? (int) $_POST['message_id'] : null;
 
-    if (!$reported_id || empty($reason)) {
+    if (!$reported_id || empty($reason) || empty($details)) {
         http_response_code(400);
-        echo json_encode(['error' => 'reported_id and reason are required']);
+        echo json_encode(['error' => 'reported_id, reason, and details are required']);
         exit;
     }
 
@@ -149,12 +150,34 @@ if ($action === 'report_user' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Limit details to 200 words
+    // Limit details to 50 words
     $wordCount = str_word_count($details);
-    if ($wordCount > 200) {
+    if ($wordCount > 50) {
         http_response_code(400);
-        echo json_encode(['error' => 'Details exceed 200 words']);
+        echo json_encode(['error' => 'Details exceed 50 words']);
         exit;
+    }
+
+    // Validate message_id if provided
+    if ($message_id) {
+        $msgStmt = $conn->prepare("
+            SELECT m.message_id 
+            FROM Messages m
+            WHERE m.message_id = ? 
+            AND m.sender_id = ?
+            LIMIT 1
+        ");
+        $msgStmt->bind_param("ii", $message_id, $reported_id);
+        $msgStmt->execute();
+        $msgResult = $msgStmt->get_result();
+
+        if ($msgResult->num_rows === 0) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid message or message not from reported user']);
+            $msgStmt->close();
+            exit;
+        }
+        $msgStmt->close();
     }
 
     // Prevent duplicate spam reports (optional but recommended)
@@ -180,11 +203,11 @@ if ($action === 'report_user' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     // Insert report
     $stmt = $conn->prepare("
         INSERT INTO User_Reports 
-        (reporter_id, reported_id, reason, details, report_status, created_at)
-        VALUES (?, ?, ?, ?, 'open', UTC_TIMESTAMP())
+        (reporter_id, reported_id, reason, details, message_id, report_status, created_at)
+        VALUES (?, ?, ?, ?, ?, 'open', UTC_TIMESTAMP())
     ");
 
-    $stmt->bind_param("iiss", $reporter_id, $reported_id, $reason, $details);
+    $stmt->bind_param("iissi", $reporter_id, $reported_id, $reason, $details, $message_id);
 
     if ($stmt->execute()) {
         echo json_encode([
@@ -198,6 +221,137 @@ if ($action === 'report_user' && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $stmt->close();
     exit;
+}
+
+// Remove friend
+if ($action === 'remove_friend' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $user_id = (int) ($current_user_id ?? 0);
+    $friend_id = (int) ($_POST['friend_id'] ?? 0);
+
+    if (!$friend_id || !$user_id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Missing required parameters']);
+        exit;
+    }
+
+    if ($user_id === $friend_id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Cannot remove yourself']);
+        exit;
+    }
+
+    // Delete friendship
+    $stmt = $conn->prepare("
+        DELETE FROM Friendship 
+        WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)
+    ");
+    $stmt->bind_param("iiii", $user_id, $friend_id, $friend_id, $user_id);
+
+    if ($stmt->execute()) {
+        // Send notification to the friend
+        $notificationStmt = $conn->prepare("
+            INSERT INTO Notifications (recipient_id, sender_id, reference_type, reference_id, message, notification_type, created_at)
+            VALUES (?, ?, 'friendship', ?, ?, 'friend_removed', UTC_TIMESTAMP())
+        ");
+        $message = 'removed you as a friend';
+        $notificationStmt->bind_param("iiss", $friend_id, $user_id, $user_id, $message);
+        $notificationStmt->execute();
+        $notificationStmt->close();
+
+        echo json_encode(['success' => true]);
+    } else {
+        http_response_code(500);
+        echo json_encode(['error' => 'Failed to remove friend']);
+    }
+
+    $stmt->close();
+    exit;
+}
+
+// Block user
+if ($action === 'block_user' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $blocker_id = (int) ($current_user_id ?? 0);
+    $blocked_id = (int) ($_POST['blocked_id'] ?? 0);
+
+    if (!$blocked_id || !$blocker_id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Missing required parameters']);
+        exit;
+    }
+
+    if ($blocker_id === $blocked_id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Cannot block yourself']);
+        exit;
+    }
+
+    // Start transaction
+    $conn->begin_transaction();
+
+    try {
+        // Check if already blocked
+        $checkStmt = $conn->prepare("
+            SELECT * FROM User_Blocks 
+            WHERE blocker_id = ? AND blocked_id = ?
+            LIMIT 1
+        ");
+        $checkStmt->bind_param("ii", $blocker_id, $blocked_id);
+        $checkStmt->execute();
+        $checkResult = $checkStmt->get_result();
+
+        if ($checkResult->num_rows > 0) {
+            http_response_code(400);
+            echo json_encode(['error' => 'User already blocked']);
+            $checkStmt->close();
+            exit;
+        }
+        $checkStmt->close();
+
+        // Insert block record
+        $blockStmt = $conn->prepare("
+            INSERT INTO User_Blocks (blocker_id, blocked_id, created_at)
+            VALUES (?, ?, UTC_TIMESTAMP())
+        ");
+        $blockStmt->bind_param("ii", $blocker_id, $blocked_id);
+        $blockStmt->execute();
+        $blockStmt->close();
+
+        // Update friendship status to 'removed'
+        $friendStmt = $conn->prepare("
+            UPDATE Friendship 
+            SET status = 'removed' 
+            WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)
+        ");
+        $friendStmt->bind_param("iiii", $blocker_id, $blocked_id, $blocked_id, $blocker_id);
+        $friendStmt->execute();
+        $friendStmt->close();
+
+        // Send notification to the blocked user
+        $notificationStmt = $conn->prepare("
+            INSERT INTO Notifications (recipient_id, sender_id, reference_type, reference_id, message, notification_type, created_at)
+            VALUES (?, ?, 'block', ?, ?, 'user_blocked', UTC_TIMESTAMP())
+        ");
+        $message = 'blocked you';
+        $notificationStmt->bind_param("iiss", $blocked_id, $blocker_id, $blocker_id, $message);
+        $notificationStmt->execute();
+        $notificationStmt->close();
+
+        $conn->commit();
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) {
+        $conn->rollback();
+        http_response_code(500);
+        echo json_encode(['error' => 'Failed to block user']);
+    }
+
+    exit;
+}
+
+function clean_input($data) {
+  $data = trim($data);
+  $data = stripslashes($data);
+  $data = htmlspecialchars($data, ENT_QUOTES, 'UTF-8');
+  return $data;
 }
 
 http_response_code(400);

@@ -131,6 +131,41 @@
     padding: 0 0.5rem;
 }
 
+.message-report-btn {
+    all: unset;
+    background: none;
+    border: none;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.message.received .message-report-btn img {
+    width: 18px;
+    height: 18px;
+}
+
+.message.received:hover .message-report-btn {
+    opacity: 1;
+}
+
+.flagged-message{
+    color: #FFF;
+    font-size: 18px;
+    font-weight: 400;
+}
+
+.remove-button {
+    border: 1px solid #C30E59;
+    color: #C30E59;
+}
+
+.block-button {
+    background-color: #F2AE66;
+    border: 1px solid #F2AE66;
+    color: #FFF;
+}
+
 .no-messages {
     text-align: center;
     color: #999;
