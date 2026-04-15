@@ -1,0 +1,154 @@
+/* Settings sidebar - matches friends sidebar pattern */
+.settings-sidebar {
+    background-color: #C30E59;
+    padding: 1rem;
+}
+
+@media (min-width: 992px) {
+    .settings-sidebar {
+        min-height: 100vh;
+    }
+
+    .dont-collapse-lg {
+        display: block !important;
+    }
+
+    .dont-collapse-lg.collapse {
+        display: block !important;
+    }
+}
+
+/* Sidebar menu sections */
+.settings-menu {
+    background-color: #FFFFFF;
+    border-radius: 1.25rem;
+    padding: 1.25rem;
+}
+
+.settings-menu-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.settings-menu-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.settings-menu-list li {
+    padding: 6px 0;
+}
+
+.settings-menu-list a {
+    color: #333;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.settings-menu-list a:hover {
+    color: var(--wm-button-primary);
+}
+
+.settings-menu-list a.active {
+    color: var(--wm-button-primary);
+    font-weight: 600;
+}
+
+/* Content area */
+.settings-content {
+    padding: 2rem;
+}
+
+.settings-section-title {
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.settings-section-subtitle {
+    font-size: 14px;
+    color: #808080;
+    font-weight: 300;
+}
+
+.settings-success {
+    color: #2E7D32;
+    font-size: 14px;
+}
+
+/* Preferences grid layout */
+.preferences-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .preferences-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.preferences-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* Individual preference fields */
+.preference-field label {
+    font-size: 14px;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.preference-select {
+    width: 100%;
+    height: 45px;
+    border-radius: var(--wm-button-radius);
+    border: 1px solid #808080;
+    padding: 0 14px;
+    font-family: var(--wm-font-family);
+    font-size: 14px;
+}
+
+/* Range sliders */
+.range-slider {
+    display: flex;
+    gap: 10px;
+}
+
+.range-slider input[type="range"],
+input[type="range"] {
+    width: 100%;
+    accent-color: var(--wm-button-primary);
+}
+
+.range-label {
+    font-size: 12px;
+    color: #808080;
+    margin-top: 4px;
+    display: block;
+}
+
+/* Placeholder boxes for future features */
+.preference-box {
+    border-radius: var(--wm-button-radius);
+    border: 1px solid #808080;
+    padding: 1.25rem;
+    min-height: 80px;
+}
+
+.placeholder-text {
+    color: #808080;
+    font-size: 14px;
+    font-weight: 300;
+}
+
+/* Save button */
+.settings-save-btn {
+    margin-top: 1.5rem;
+}
