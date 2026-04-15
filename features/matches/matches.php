@@ -83,7 +83,7 @@ if ($current_user_id) {
 
 $groups = [];
 ?>
-<link rel="stylesheet" href="./matches.css">
+<link rel="stylesheet" href="../friends/chats-sidebar.css">
 	<div class="container-fluid">
         <div class="row">
             <div class="col-lg-3 chats-sidebar" id="chatsSidebar">

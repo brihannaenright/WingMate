@@ -178,3 +178,17 @@
     height: 100%;
     object-fit: cover;
 }
+
+.friends-page-chat,
+.matches-page-chat {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 80px);
+}
+
+@media (max-width: 991px) {
+    .friends-page-chat,
+    .matches-page-chat {
+        min-height: calc(100vh - 80px - 50px);
+    }
+}

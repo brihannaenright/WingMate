@@ -6,12 +6,25 @@
     .dont-collapse-lg.collapse {
         display: block;
     }
+
+    .chats-sidebar {
+        min-height: calc(100vh - 80px);
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 991px) {
+    .chats-sidebar {
+        padding: 0.5rem;
+    }
+
+    .chats-sidebar .collapse:not(.show) {
+        display: none !important;
+    }
 }
 
 .chats-sidebar{
     background-color: #C30E59;
-    padding: 1rem;
-    min-height: calc(100vh - 80px);
 }
 
 .chats-list{
