@@ -141,12 +141,16 @@ if (!defined('CHAT_UI_INCLUDED')) {
 
                     <!-- Settings content -->
                     <div id="settingsContent" class="d-none">
-                        <p class="text-muted mb-3">Manage your friendship</p>
+                        <p class="text-muted mb-3" id="settingsManageText">Manage your friendship</p>
                         
-                        <button type="button" id="removeFriendBtn" class="btn remove-button w-100 mb-2">
+                        <!-- Remove Friend / Unmatch Button (context-aware) -->
+                        <button type="button" id="removeFriendBtn" class="btn remove-button w-100 mb-2 d-none">
                             Remove as Friend
                         </button>
-                        <small class="text-muted d-block mb-3">You will no longer be friends with this user</small>
+                        <button type="button" id="unmatchBtn" class="btn remove-button w-100 mb-2 d-none">
+                            Unmatch
+                        </button>
+                        <small class="text-muted d-block mb-3" id="removeFriendText"></small>
 
                         <button type="button" id="blockUserBtn" class="btn block-button w-100">
                             Block User
@@ -169,12 +173,15 @@ const ChatManager = {
     chatContent: null,
     messagePoller: null,
     currentFriendId: null,
+    currentMatchId: null,
     lastMessageCount: 0,
     selectedMessageId: null,
+    contextType: 'friends', // 'friends' or 'matches'
 
     // Initialises chat manager with current user ID and sets up event listeners
-    init: function(userId) {
+    init: function(userId, contextType = 'friends') {
         this.currentUserId = userId;
+        this.contextType = contextType;
         this.messageForm = document.getElementById('messageForm');
         this.messageInput = document.getElementById('messageInput');
         this.emptyState = document.getElementById('emptyState');
@@ -186,11 +193,12 @@ const ChatManager = {
         }
     },
 
-    loadChat: function(friendId, friendName, profilePictureUrl = null, onLoadComplete = null) {
+    loadChat: function(friendId, friendName, profilePictureUrl = null, onLoadComplete = null, matchId = null) {
         // Show loading state
         this.emptyState.classList.add('d-none');
         this.chatContent.classList.remove('d-none');
         this.currentFriendId = friendId;
+        this.currentMatchId = matchId;
 
         document.getElementById('chatFriendName').textContent = 'Loading...';
 
@@ -553,10 +561,13 @@ document.addEventListener('DOMContentLoaded', function () {
     // Settings Modal Handlers
     const settingsModal = document.getElementById('settingsModal');
     const removeFriendBtn = document.getElementById('removeFriendBtn');
+    const unmatchBtn = document.getElementById('unmatchBtn');
     const blockUserBtn = document.getElementById('blockUserBtn');
     const settingsGeneralMessage = document.getElementById('settingsGeneralMessage');
     const settingsLoading = document.getElementById('settingsLoading');
     const settingsContent = document.getElementById('settingsContent');
+    const settingsManageText = document.getElementById('settingsManageText');
+    const removeFriendText = document.getElementById('removeFriendText');
 
     function showSettingsMessage(message, isError = true) {
         settingsGeneralMessage.textContent = message;
@@ -584,6 +595,19 @@ document.addEventListener('DOMContentLoaded', function () {
     settingsModal.addEventListener('show.bs.modal', function () {
         settingsGeneralMessage.classList.add('d-none');
         showSettingsLoading(false);
+
+        // Show context-appropriate buttons
+        if (ChatManager.contextType === 'matches') {
+            removeFriendBtn.classList.add('d-none');
+            unmatchBtn.classList.remove('d-none');
+            settingsManageText.textContent = 'Manage your match';
+            removeFriendText.textContent = 'You will no longer see this match';
+        } else {
+            removeFriendBtn.classList.remove('d-none');
+            unmatchBtn.classList.add('d-none');
+            settingsManageText.textContent = 'Manage your friendship';
+            removeFriendText.textContent = 'You will no longer be friends with this user';
+        }
     });
 
     // Remove friend
@@ -622,6 +646,45 @@ document.addEventListener('DOMContentLoaded', function () {
         .catch(err => {
             console.error(err);
             showSettingsMessage('Error removing friend', true);
+            showSettingsLoading(false);
+        });
+    });
+
+    // Unmatch (for matches context)
+    unmatchBtn.addEventListener('click', function () {
+        if (!ChatManager.currentMatchId) {
+            showSettingsMessage('No match selected');
+            return;
+        }
+
+        showSettingsLoading(true);
+
+        const formData = new FormData();
+        formData.append('action', 'unmatch');
+        formData.append('match_id', ChatManager.currentMatchId);
+
+        fetch('/features/matches/match-api.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                showSettingsMessage('Match removed successfully', false);
+                setTimeout(() => {
+                    const modal = bootstrap.Modal.getInstance(settingsModal);
+                    modal.hide();
+                    // Reload matches list
+                    window.location.reload();
+                }, 1500);
+            } else {
+                showSettingsMessage(data.error || 'Failed to unmatch', true);
+                showSettingsLoading(false);
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            showSettingsMessage('Error unmatching', true);
             showSettingsLoading(false);
         });
     });

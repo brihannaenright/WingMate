@@ -261,8 +261,8 @@ $groups = [];
 <script>
 document.addEventListener('DOMContentLoaded', function() {
 
-    // Initialize ChatManager with current user ID
-    ChatManager.init(<?php echo (int)$current_user_id; ?>);
+    // Initialize ChatManager with current user ID and 'friends' context
+    ChatManager.init(<?php echo (int)$current_user_id; ?>, 'friends');
 
     const chatCards = document.querySelectorAll('.chat-card');
 

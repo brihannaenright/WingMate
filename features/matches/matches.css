@@ -1,0 +1,94 @@
+@media (min-width: 992px) {
+    .dont-collapse-lg {
+        display: block;
+    }
+    
+    .dont-collapse-lg.collapse {
+        display: block;
+    }
+}
+
+.chats-sidebar{
+    background-color: #C30E59;
+    padding: 1rem;
+    min-height: calc(100vh - 80px);
+}
+
+.chats-list{
+    background-color: #FFFFFF;
+    border-radius: 1.25rem;
+    padding: 1.25rem;
+
+    p{
+        font-size: 18px;
+        font-weight: 300;
+    }
+}
+
+.h2{
+    font-size: 24px;
+    font-style: normal;
+    font-weight: 600;
+}
+
+.chat-card{
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+}
+
+.chat-card:hover {
+    background-color: #f5f5f5;
+}
+
+.chat-card.active {
+    background-color: #ffe0f0;
+}
+
+.profile-image-wrapper{
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: #f0f0f0;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.profile-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-name {
+    margin: 0;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.empty-state-message {
+    color: #999;
+    text-align: center;
+    width: 100%;
+    padding: 1rem 0;
+}
+
+.list-title {
+    width: 100%;
+}
+
+.title {
+    font-size: 24px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.chats-grid {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}

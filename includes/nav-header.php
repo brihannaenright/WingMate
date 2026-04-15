@@ -38,7 +38,7 @@
                     <a class="nav-link" href="#">Swipe</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">Matches</a>
+                    <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/matches/matches.php') !== false ? 'active' : ''; ?>" href="/features/matches/matches.php">Matches</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/friends/friends.php') !== false ? 'active' : ''; ?>" href="/features/friends/friends.php">Friends</a>
