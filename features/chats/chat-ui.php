@@ -523,13 +523,8 @@ const ChatManager = {
                 });
             });
 
-            // Auto-scroll only if user is near bottom (prevents scroll fighting)
-            const isNearBottom =
-                messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 100;
-
-            if (isNearBottom) {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
+            // Scroll to bottom to show newest messages
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
         })
         .catch(error => console.error('Error loading messages:', error));
     },
