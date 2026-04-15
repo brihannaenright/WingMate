@@ -152,12 +152,13 @@ include __DIR__ . '/../../includes/nav-header.php';
                                     </select>
                                 </div>
 
-                                <!-- Age Preference -->
+                                <!-- Age Preference (dual-handle range slider) -->
                                 <div class="preference-field">
                                     <label>Age Preference:</label>
-                                    <div class="range-slider">
-                                        <input type="range" name="min_age" min="18" max="100" value="<?php echo (int) $min_age; ?>" id="minAge">
-                                        <input type="range" name="max_age" min="18" max="100" value="<?php echo (int) $max_age; ?>" id="maxAge">
+                                    <div class="dual-range">
+                                        <div class="dual-range-track" id="ageTrack"></div>
+                                        <input type="range" name="min_age" min="18" max="100" value="<?php echo (int) $min_age; ?>" id="minAge" class="dual-range-input">
+                                        <input type="range" name="max_age" min="18" max="100" value="<?php echo (int) $max_age; ?>" id="maxAge" class="dual-range-input">
                                     </div>
                                     <span class="range-label" id="ageRangeLabel"><?php echo (int) $min_age; ?> - <?php echo (int) $max_age; ?></span>
                                 </div>
@@ -209,22 +210,33 @@ include __DIR__ . '/../../includes/nav-header.php';
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Update age range label when sliders change
+    // Dual-handle age range slider
     const minAge = document.getElementById('minAge');
     const maxAge = document.getElementById('maxAge');
     const ageLabel = document.getElementById('ageRangeLabel');
+    const ageTrack = document.getElementById('ageTrack');
 
-    function updateAgeLabel() {
-        // Make sure min doesn't go above max
+    // Colours the track between the two handles
+    function updateAgeSlider() {
+        // Prevent handles from crossing each other
         if (parseInt(minAge.value) > parseInt(maxAge.value)) {
             minAge.value = maxAge.value;
         }
+
+        // Calculate position of each handle as a percentage
+        var minPercent = ((minAge.value - 18) / (100 - 18)) * 100;
+        var maxPercent = ((maxAge.value - 18) / (100 - 18)) * 100;
+
+        // Colour the track: grey outside the handles, pink between them
+        ageTrack.style.background = 'linear-gradient(to right, #E0E0E0 ' + minPercent + '%, #C30E59 ' + minPercent + '%, #C30E59 ' + maxPercent + '%, #E0E0E0 ' + maxPercent + '%)';
+
         ageLabel.textContent = minAge.value + ' - ' + maxAge.value;
     }
 
     if (minAge && maxAge) {
-        minAge.addEventListener('input', updateAgeLabel);
-        maxAge.addEventListener('input', updateAgeLabel);
+        minAge.addEventListener('input', updateAgeSlider);
+        maxAge.addEventListener('input', updateAgeSlider);
+        updateAgeSlider(); // Set initial track colour on page load
     }
 
     // Update distance label when slider changes
