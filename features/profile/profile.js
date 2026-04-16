@@ -70,9 +70,24 @@ document.getElementById('editBio')?.addEventListener('input', function() {
 function saveBio() {
     const newBio = document.getElementById('editBio').value.trim();
 
-    document.getElementById('profileBio').textContent = newBio || '';
+    const formData = new FormData();
+    formData.append('action', 'update_bio');
+    formData.append('bio', newBio);
 
-    bootstrap.Modal.getInstance(document.getElementById('bioModal')).hide();
+    fetch(window.location.pathname, { method: 'POST', body: formData })
+        .then(res => res.text().then(text => {
+            if (!res.ok) throw new Error('Server ' + res.status + ': ' + text.substring(0, 200));
+            try { return JSON.parse(text); } catch { throw new Error('Invalid response: ' + text.substring(0, 200)); }
+        }))
+        .then(data => {
+            if (data.success) {
+                document.getElementById('profileBio').textContent = newBio;
+                bootstrap.Modal.getInstance(document.getElementById('bioModal')).hide();
+            } else {
+                alert('Failed to save bio: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(err => alert('Error: ' + err.message));
 }
 
 // --- Profile Picture Modal ---

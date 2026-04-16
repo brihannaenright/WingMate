@@ -125,6 +125,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    if ($action === 'update_bio') {
+        header('Content-Type: application/json');
+        $bio = trim($_POST['bio'] ?? '');
+        if (strlen($bio) > 500) {
+            echo json_encode(['success' => false, 'error' => 'Bio too long']);
+            exit;
+        }
+        $stmt = $conn->prepare("UPDATE User_Profile SET user_bio = ? WHERE user_id = ?");
+        $stmt->bind_param('si', $bio, $current_user_id);
+        $stmt->execute();
+        $stmt->close();
+        echo json_encode(['success' => true]);
+        exit;
+    }
+
     if ($action === 'update_location') {
         header('Content-Type: application/json');
 
@@ -171,7 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Fetch profile data from DB
-$stmt = $conn->prepare("SELECT first_name, last_name, date_of_birth, general_location, latitude, longitude FROM User_Profile WHERE user_id = ?");
+$stmt = $conn->prepare("SELECT first_name, last_name, date_of_birth, general_location, latitude, longitude, user_bio FROM User_Profile WHERE user_id = ?");
 $stmt->bind_param('i', $current_user_id);
 $stmt->execute();
 $profile = $stmt->get_result()->fetch_assoc();
@@ -191,6 +206,7 @@ $displayAge = $age ? ", $age" : '';
 $displayLocation = htmlspecialchars($profile['general_location'] ?? '');
 $userLat = $profile['latitude'] ?? '';
 $userLng = $profile['longitude'] ?? '';
+$userBio = htmlspecialchars($profile['user_bio'] ?? '');
 
 // Fetch all tags
 $allTags = [];
@@ -267,7 +283,7 @@ $stmt->close();
                 <div class="profile-location" id="profileLocation">
                     <span class="profile-location-icon">📍</span> <?php echo $displayLocation ?: 'Add your location'; ?>
                 </div>
-                <p class="profile-bio" id="profileBio"></p>
+                <p class="profile-bio" id="profileBio"><?php echo $userBio; ?></p>
             </div>
         </div>
 
