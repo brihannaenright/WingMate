@@ -14,6 +14,12 @@ require_once __DIR__ . '/../../config/config.php';
 
 wingmate_start_secure_session();
 
+// Check for session idle timeout (30 minutes)
+if (!wingmate_check_session_idle_timeout(1800)) {
+    header('Location: /features/auth/login.php?reason=session_expired');
+    exit;
+}
+
 // Gets current user ID
 $current_user_id = $_SESSION['user_id'] ?? null;
 
@@ -23,38 +29,78 @@ if (!$current_user_id) {
     exit;
 }
 
+// Initialize message variables
+$friendsSuccess = '';
+$friendsError = '';
+
+// Retrieve any stored messages from session
+if (isset($_SESSION['friends_success'])) {
+    $friendsSuccess = (string) $_SESSION['friends_success'];
+    unset($_SESSION['friends_success']);
+}
+
+if (isset($_SESSION['friends_error'])) {
+    $friendsError = (string) $_SESSION['friends_error'];
+    unset($_SESSION['friends_error']);
+}
+
 // Handle POST actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Validate CSRF token before processing POST requests
+    if (!wingmate_validate_csrf_token($_POST['csrf_token'] ?? null)) {
+        http_response_code(400);
+        $_SESSION['friends_error'] = 'Session validation failed. Please refresh and try again.';
+        header('Location: /features/friends/friends.php');
+        exit;
+    }
+
     $action = $_POST['action'] ?? '';
 
     if ($action === 'send_request' && !empty($_POST['friend_id'])) {
         $friend_id = (int) $_POST['friend_id'];
-        $check = $conn->prepare("SELECT user_id FROM Friendship WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)");
-        $check->bind_param('iiii', $current_user_id, $friend_id, $friend_id, $current_user_id);
-        $check->execute();
-        if ($check->get_result()->num_rows === 0) {
-            $stmt = $conn->prepare("INSERT INTO Friendship (user_id, friend_id, status) VALUES (?, ?, 'pending')");
-            $stmt->bind_param('ii', $current_user_id, $friend_id);
-            $stmt->execute();
-            $stmt->close();
+        try {
+            $check = $conn->prepare("SELECT user_id FROM Friendship WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)");
+            $check->bind_param('iiii', $current_user_id, $friend_id, $friend_id, $current_user_id);
+            $check->execute();
+            if ($check->get_result()->num_rows === 0) {
+                $stmt = $conn->prepare("INSERT INTO Friendship (user_id, friend_id, status) VALUES (?, ?, 'pending')");
+                $stmt->bind_param('ii', $current_user_id, $friend_id);
+                $stmt->execute();
+                $_SESSION['friends_success'] = 'Friend request sent successfully!';
+                $stmt->close();
+            } else {
+                $_SESSION['friends_error'] = 'You already have a pending request or friendship with this user.';
+            }
+            $check->close();
+        } catch (Exception $e) {
+            $_SESSION['friends_error'] = 'An error occurred while sending the friend request. Please try again.';
         }
-        $check->close();
     }
 
     if ($action === 'accept' && !empty($_POST['sender_id'])) {
         $sender_id = (int) $_POST['sender_id'];
-        $stmt = $conn->prepare("UPDATE Friendship SET status = 'accepted' WHERE user_id = ? AND friend_id = ?");
-        $stmt->bind_param('ii', $sender_id, $current_user_id);
-        $stmt->execute();
-        $stmt->close();
+        try {
+            $stmt = $conn->prepare("UPDATE Friendship SET status = 'accepted' WHERE user_id = ? AND friend_id = ?");
+            $stmt->bind_param('ii', $sender_id, $current_user_id);
+            $stmt->execute();
+            $_SESSION['friends_success'] = 'Friend request accepted!';
+            $stmt->close();
+        } catch (Exception $e) {
+            $_SESSION['friends_error'] = 'An error occurred while accepting the friend request. Please try again.';
+        }
     }
 
     if ($action === 'reject' && !empty($_POST['sender_id'])) {
         $sender_id = (int) $_POST['sender_id'];
-        $stmt = $conn->prepare("DELETE FROM Friendship WHERE user_id = ? AND friend_id = ?");
-        $stmt->bind_param('ii', $sender_id, $current_user_id);
-        $stmt->execute();
-        $stmt->close();
+        try {
+            $stmt = $conn->prepare("DELETE FROM Friendship WHERE user_id = ? AND friend_id = ?");
+            $stmt->bind_param('ii', $sender_id, $current_user_id);
+            $stmt->execute();
+            $_SESSION['friends_success'] = 'Friend request rejected.';
+            $stmt->close();
+        } catch (Exception $e) {
+            $_SESSION['friends_error'] = 'An error occurred while rejecting the friend request. Please try again.';
+        }
     }
 
     header('Location: /features/friends/friends.php');
@@ -65,46 +111,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $searchResults = [];
 $searchQuery = '';
 if (!empty($_GET['q'])) {
-    $searchQuery = trim($_GET['q']);
+    $searchQuery = clean_input($_GET['q']);
+    // Limit search query to reasonable length to prevent DOS
+    if (strlen($searchQuery) > 100) {
+        $searchQuery = substr($searchQuery, 0, 100);
+    }
     $searchParam = '%' . $searchQuery . '%';
-    $stmt = $conn->prepare("
-        SELECT u.user_id, up.first_name, up.last_name
-        FROM Users u
-        JOIN User_Profile up ON u.user_id = up.user_id
-        WHERE u.user_id != ?
-        AND (up.first_name LIKE ? OR up.last_name LIKE ?)
-        AND u.user_id NOT IN (
-            SELECT CASE WHEN f.user_id = ? THEN f.friend_id ELSE f.user_id END
-            FROM Friendship f
-            WHERE f.user_id = ? OR f.friend_id = ?
-        )
-        LIMIT 10
-    ");
-    $stmt->bind_param('issiii', $current_user_id, $searchParam, $searchParam, $current_user_id, $current_user_id, $current_user_id);
-    $stmt->execute();
-    $searchResults = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    $stmt->close();
+    try {
+        $stmt = $conn->prepare("
+            SELECT u.user_id, up.first_name, up.last_name
+            FROM Users u
+            JOIN User_Profile up ON u.user_id = up.user_id
+            WHERE u.user_id != ?
+            AND (up.first_name LIKE ? OR up.last_name LIKE ?)
+            AND u.user_id NOT IN (
+                SELECT CASE WHEN f.user_id = ? THEN f.friend_id ELSE f.user_id END
+                FROM Friendship f
+                WHERE f.user_id = ? OR f.friend_id = ?
+            )
+            LIMIT 10
+        ");
+        $stmt->bind_param('issiii', $current_user_id, $searchParam, $searchParam, $current_user_id, $current_user_id, $current_user_id);
+        $stmt->execute();
+        $searchResults = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+    } catch (Exception $e) {
+        $friendsError = 'An error occurred while searching for users. Please try again.';
+    }
 }
 
 include __DIR__ . '/../../includes/nav-header.php';
 
 // Fetch pending friend requests (sent TO current user)
 $pendingRequests = [];
-$stmt = $conn->prepare("
-    SELECT u.user_id, up.first_name, up.last_name
-    FROM Friendship f
-    JOIN Users u ON u.user_id = f.user_id
-    JOIN User_Profile up ON u.user_id = up.user_id
-    WHERE f.friend_id = ? AND f.status = 'pending'
-");
-$stmt->bind_param('i', $current_user_id);
-$stmt->execute();
-$pendingRequests = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
+try {
+    $stmt = $conn->prepare("
+        SELECT u.user_id, up.first_name, up.last_name
+        FROM Friendship f
+        JOIN Users u ON u.user_id = f.user_id
+        JOIN User_Profile up ON u.user_id = up.user_id
+        WHERE f.friend_id = ? AND f.status = 'pending'
+    ");
+    $stmt->bind_param('i', $current_user_id);
+    $stmt->execute();
+    $pendingRequests = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+} catch (Exception $e) {
+    $friendsError = 'An error occurred while loading friend requests.';
+    $pendingRequests = [];
+}
 
 // Fetch accepted friends
 $friends = [];
-if ($current_user_id) {
+try {
     $stmt = $conn->prepare("
         SELECT u.user_id, up.first_name, up.last_name, p.photo_url
         FROM Friendship f
@@ -122,11 +181,15 @@ if ($current_user_id) {
     $result = $stmt->get_result();
     $friends = $result->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
+} catch (Exception $e) {
+    $friendsError = 'An error occurred while loading friends.';
+    $friends = [];
 }
 
 // Fetch groups for current user
 $groups = [];
-if ($current_user_id) {
+try {
+    // Fetch all groups
     $stmt = $conn->prepare("
         SELECT c.chat_id, c.group_name, c.created_by
         FROM Chats c
@@ -139,30 +202,73 @@ if ($current_user_id) {
     $stmt->execute();
     $result = $stmt->get_result();
     $groups = $result->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
     
-    // Fetch members for each group (up to 4)
+    // Initialize members array for each group
     foreach ($groups as &$group) {
+        $group['members'] = [];
+    }
+    
+    // Fetch all members for all groups in a single query (prevents N+1 problem)
+    if (!empty($groups)) {
+        $groupIds = array_column($groups, 'chat_id');
+        $placeholders = implode(',', array_fill(0, count($groupIds), '?'));
+        
         $memberStmt = $conn->prepare("
-            SELECT u.user_id, up.first_name, up.last_name, p.photo_url
+            SELECT cm.chat_id, u.user_id, up.first_name, up.last_name, p.photo_url
             FROM Chat_Members cm
             JOIN Users u ON cm.user_id = u.user_id
             JOIN User_Profile up ON u.user_id = up.user_id
             LEFT JOIN User_Pictures p ON u.user_id = p.user_id AND p.is_primary = 1 AND p.is_removed = 0
-            WHERE cm.chat_id = ? AND cm.left_at IS NULL
-            LIMIT 4
+            WHERE cm.chat_id IN ($placeholders) AND cm.left_at IS NULL
+            ORDER BY cm.chat_id, up.first_name
         ");
-        $memberStmt->bind_param('i', $group['chat_id']);
+        
+        $types = str_repeat('i', count($groupIds));
+        $memberStmt->bind_param($types, ...$groupIds);
         $memberStmt->execute();
-        $group['members'] = $memberStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $allMembers = $memberStmt->get_result()->fetch_all(MYSQLI_ASSOC);
         $memberStmt->close();
+        
+        // Group members by chat_id and limit to 4 per group
+        foreach ($allMembers as $member) {
+            $chatId = $member['chat_id'];
+            // Find the group and add member (limit to 4)
+            foreach ($groups as &$group) {
+                if ($group['chat_id'] == $chatId && count($group['members']) < 4) {
+                    $group['members'][] = $member;
+                    break;
+                }
+            }
+        }
     }
-    unset($group);
-    
-    $stmt->close();
+} catch (Exception $e) {
+    $friendsError = 'An error occurred while loading groups.';
+    $groups = [];
+}
+
+function clean_input($data): string
+{
+    $data = trim($data);
+    $data = stripslashes($data);
+    $data = htmlspecialchars($data, ENT_QUOTES, 'UTF-8');
+    return (string) $data;
 }
 ?>
 <link rel="stylesheet" href="./chats-sidebar.css">
 	<div class="container-fluid">
+        <?php if (!empty($friendsSuccess)): ?>
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <?php echo htmlspecialchars($friendsSuccess, ENT_QUOTES, 'UTF-8'); ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        <?php endif; ?>
+        <?php if (!empty($friendsError)): ?>
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <?php echo htmlspecialchars($friendsError, ENT_QUOTES, 'UTF-8'); ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        <?php endif; ?>
         <div class="row">
             <div class="col-lg-3 chats-sidebar" id="chatsSidebar">
                 <button class="btn btn-light fw-bold w-100 mb-3 d-lg-none" type="button" data-bs-toggle="collapse" 
@@ -276,6 +382,7 @@ if ($current_user_id) {
                         <div class="d-flex align-items-center justify-content-between mt-2">
                             <span><?php echo htmlspecialchars($result['first_name'] . ' ' . $result['last_name']); ?></span>
                             <form method="POST">
+                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                                 <input type="hidden" name="action" value="send_request">
                                 <input type="hidden" name="friend_id" value="<?php echo $result['user_id']; ?>">
                                 <button type="submit" class="button-primary">Add</button>
@@ -305,11 +412,13 @@ if ($current_user_id) {
                             <span><?php echo htmlspecialchars($request['first_name'] . ' ' . $request['last_name']); ?></span>
                             <div class="d-flex gap-1">
                                 <form method="POST">
+                                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                                     <input type="hidden" name="action" value="accept">
                                     <input type="hidden" name="sender_id" value="<?php echo $request['user_id']; ?>">
                                     <button type="submit" class="button-secondary">Accept</button>
                                 </form>
                                 <form method="POST">
+                                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                                     <input type="hidden" name="action" value="reject">
                                     <input type="hidden" name="sender_id" value="<?php echo $request['user_id']; ?>">
                                     <button type="submit" class="button-primary">Reject</button>
@@ -335,10 +444,11 @@ if ($current_user_id) {
             </div>
             <div class="modal-body">
                 <form id="createGroupForm" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" id="groupFormCsrfToken" value="">
                     <!-- Group Name -->
                     <div class="mb-3">
                         <label class="form-label">Group Name</label>
-                        <input type="text" id="groupName" class="form-control" placeholder="Enter group name" required>
+                        <input type="text" id="groupName" class="form-control" placeholder="Enter group name" maxlength="100" required>
                         <div id="groupNameError" class="field-error d-none"><span class="error-icon">!</span><span id="groupNameErrorText"></span></div>
                     </div>
 
@@ -378,6 +488,9 @@ if ($current_user_id) {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Set CSRF token from DOM for AJAX requests
+    const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
+    document.getElementById('groupFormCsrfToken').value = csrfToken;
 
     // Initialize ChatManager with current user ID and 'friends' context
     ChatManager.init(<?php echo (int)$current_user_id; ?>, 'friends');
@@ -435,6 +548,14 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('groupNameError').classList.remove('d-none');
             document.getElementById('groupNameErrorText').textContent = 'Group name must be at least 2 characters';
             hasErrors = true;
+        } else if (groupName.length > 100) {
+            document.getElementById('groupNameError').classList.remove('d-none');
+            document.getElementById('groupNameErrorText').textContent = 'Group name must be no more than 100 characters';
+            hasErrors = true;
+        } else if (!/^[a-zA-Z0-9\s\-_()&.,]+$/.test(groupName)) {
+            document.getElementById('groupNameError').classList.remove('d-none');
+            document.getElementById('groupNameErrorText').textContent = 'Group name contains invalid characters';
+            hasErrors = true;
         } else {
             document.getElementById('groupNameError').classList.add('d-none');
         }
@@ -452,6 +573,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Build FormData for submission
         const formData = new FormData();
+        formData.append('csrf_token', csrfToken);
         formData.append('action', 'create_group');
         formData.append('group_name', groupName);
         formData.append('member_ids', JSON.stringify(checkedFriends));

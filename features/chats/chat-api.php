@@ -688,28 +688,39 @@ if ($action === 'create_group' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Validate all members are actual friends of current user
-    $placeholders = implode(',', array_fill(0, count($member_ids), '?'));
-    $types = str_repeat('i', count($member_ids));
-    
-    $stmt = $conn->prepare("
-        SELECT COUNT(*) as count FROM Friendship 
-        WHERE (user_id = ? OR friend_id = ?) 
-        AND ((user_id IN ($placeholders) OR friend_id IN ($placeholders)))
-        AND status = 'accepted'
-    ");
-    
-    $params = array_merge([$current_user_id, $current_user_id], $member_ids, $member_ids);
-    $paramTypes = 'ii' . $types . $types;
-    $stmt->bind_param($paramTypes, ...$params);
-    $stmt->execute();
-    $result = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
-
-    if ($result['count'] != count($member_ids)) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Invalid members - make sure all are your friends']);
-        exit;
+    // Validate each member is an actual friend of current user
+    foreach ($member_ids as $member_id) {
+        $member_id = (int) $member_id;
+        
+        // Verify this user is an actual accepted friend (prevent DOM manipulation attacks)
+        $stmt = $conn->prepare("
+            SELECT 1 FROM Friendship 
+            WHERE status = 'accepted' 
+            AND (
+                (user_id = ? AND friend_id = ?) OR 
+                (user_id = ? AND friend_id = ?)
+            )
+            LIMIT 1
+        ");
+        
+        if (!$stmt) {
+            http_response_code(500);
+            echo json_encode(['error' => 'Database error']);
+            exit;
+        }
+        
+        $stmt->bind_param('iiii', $current_user_id, $member_id, $member_id, $current_user_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows === 0) {
+            // This user is NOT a friend - reject the request
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid members - make sure all are your friends']);
+            $stmt->close();
+            exit;
+        }
+        $stmt->close();
     }
 
     try {
