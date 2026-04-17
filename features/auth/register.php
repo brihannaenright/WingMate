@@ -98,14 +98,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (!has_field_errors($fieldErrors)) {
-            // Check if email is already registered
+            // Check if email is already registered or banned
             try {
-                $stmt = $conn->prepare("SELECT user_id FROM Users WHERE email = ?");
+                $stmt = $conn->prepare("SELECT user_id, account_status FROM Users WHERE email = ?");
                 $stmt->bind_param("s", $email);
                 $stmt->execute();
-                $stmt->store_result();
-                if ($stmt->num_rows > 0) {
-                    $fieldErrors['email'] = 'An account with this email already exists.';
+                $result = $stmt->get_result();
+                if ($result->num_rows > 0) {
+                    $existing_user = $result->fetch_assoc();
+                    if ($existing_user['account_status'] === 'banned') {
+                        $fieldErrors['email'] = 'This email has been permanently banned and cannot be used to register.';
+                    } else {
+                        $fieldErrors['email'] = 'An account with this email already exists.';
+                    }
                 }
                 $stmt->close();
             } catch (Exception $e) {
