@@ -47,7 +47,7 @@
                     <a class="nav-link" href="#">Vote</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">Settings</a>
+                    <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/settings/settings.php') !== false ? 'active' : ''; ?>" href="/features/settings/settings.php">Settings</a>
                 </li>
             </ul>
         </div>
