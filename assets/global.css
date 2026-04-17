@@ -83,6 +83,31 @@ p{
     padding: 8px 16px !important;
 }
 
+.notification-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    background: #C30E59;
+    color: white;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 6px;
+    animation: pulse 0.5s ease-in-out;
+}
+
+.notification-badge.hidden {
+    display: none;
+}
+
+@keyframes pulse {
+    0% { transform: scale(0.8); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
 /* Navbar mobile dropdown improvements */
 @media (max-width: 991px) {
     .navbar-collapse {
