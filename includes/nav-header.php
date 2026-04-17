@@ -35,7 +35,7 @@
                     <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/profile/profile.php') !== false ? 'active' : ''; ?>" href="/features/profile/profile.php">Profile</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">Swipe</a>
+                    <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/swipe/swipe.php') !== false ? 'active' : ''; ?>" href="/features/swipe/swipe.php">Swipe</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/matches/matches.php') !== false ? 'active' : ''; ?>" href="/features/matches/matches.php">Matches</a>
