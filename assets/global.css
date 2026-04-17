@@ -14,6 +14,8 @@
     --wm-button-radius: 15px;
     --wm-button-width: 130px;
     --wm-button-height: 45px;
+    --wm-error-color: #C30E59;
+    --wm-success-color: #F2AE66;
 }
 
 /** * Global border-box settings.
@@ -79,4 +81,108 @@ p{
     border-radius: var(--wm-button-radius);
     background: #F5F5F5;
     padding: 8px 16px !important;
+}
+
+/* Navbar mobile dropdown improvements */
+@media (max-width: 991px) {
+    .navbar-collapse {
+        background-color: white;
+        border-radius: 0.375rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-top: 0.5rem;
+        z-index: 1050;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+    }
+
+    .navbar-nav {
+        padding: 0.5rem 1rem;
+    }
+
+    .nav-item {
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .nav-item:last-child {
+        border-bottom: none;
+    }
+}
+
+/* Smooth transitions for nav links */
+.nav-link {
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.nav-link:hover {
+    color: #C30E59;
+}
+
+/* Page content fade transition */
+body {
+    opacity: 1;
+    transition: opacity 0.2s ease;
+}
+
+body.page-loading {
+    opacity: 0.7;
+}
+
+/* Global Error Styling */
+.field-error {
+    margin: 6px 0 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--wm-error-color);
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.error-icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--wm-error-color);
+    color: #FFFFFF;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    flex: 0 0 16px;
+}
+
+.general-error {
+    margin-top: 8px;
+    margin-bottom: 8px;
+    color: var(--wm-error-color);
+    font-size: 14px;
+}
+
+.general-success {
+    margin-top: 8px;
+    margin-bottom: 8px;
+    color: var(--wm-success-color);
+    font-size: 14px;
+}
+
+.alert-wingmate {
+    background-color: #f8d09d ;
+    border: 1px solid #F2AE66;
+    color: #000;
+    font-size: 14px;
+    padding: 12px 20px;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+
+.alert-wingmate p {
+    font-size: 14px;
+    font-weight: 400;
+    margin: 0;
+}
+
+.alert-wingmate strong {
+    font-weight: 600;
 }
