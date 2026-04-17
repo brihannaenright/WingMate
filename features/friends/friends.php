@@ -123,6 +123,8 @@ if (!empty($_GET['q'])) {
             FROM Users u
             JOIN User_Profile up ON u.user_id = up.user_id
             WHERE u.user_id != ?
+            AND u.user_type != 'administrator'
+            AND u.account_status = 'active'
             AND (up.first_name LIKE ? OR up.last_name LIKE ?)
             AND u.user_id NOT IN (
                 SELECT CASE WHEN f.user_id = ? THEN f.friend_id ELSE f.user_id END
@@ -151,6 +153,8 @@ try {
         JOIN Users u ON u.user_id = f.user_id
         JOIN User_Profile up ON u.user_id = up.user_id
         WHERE f.friend_id = ? AND f.status = 'pending'
+        AND u.user_type != 'administrator'
+        AND u.account_status = 'active'
     ");
     $stmt->bind_param('i', $current_user_id);
     $stmt->execute();
@@ -174,6 +178,8 @@ try {
         JOIN User_Profile up ON u.user_id = up.user_id
         LEFT JOIN User_Pictures p ON u.user_id = p.user_id AND p.is_primary = 1 AND p.is_removed = 0
         WHERE f.status = 'accepted'
+        AND u.user_type != 'administrator'
+        AND u.account_status = 'active'
         ORDER BY up.first_name ASC
     ");
     $stmt->bind_param('ii', $current_user_id, $current_user_id);
