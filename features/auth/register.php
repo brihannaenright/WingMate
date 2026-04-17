@@ -98,14 +98,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (!has_field_errors($fieldErrors)) {
-            // Check if email is already registered
+            // Check if email is already registered or banned
             try {
-                $stmt = $conn->prepare("SELECT user_id FROM Users WHERE email = ?");
+                $stmt = $conn->prepare("SELECT user_id, account_status FROM Users WHERE email = ?");
                 $stmt->bind_param("s", $email);
                 $stmt->execute();
-                $stmt->store_result();
-                if ($stmt->num_rows > 0) {
-                    $fieldErrors['email'] = 'An account with this email already exists.';
+                $result = $stmt->get_result();
+                if ($result->num_rows > 0) {
+                    $existing_user = $result->fetch_assoc();
+                    if ($existing_user['account_status'] === 'banned') {
+                        $fieldErrors['email'] = 'This email has been permanently banned and cannot be used to register.';
+                    } else {
+                        $fieldErrors['email'] = 'An account with this email already exists.';
+                    }
                 }
                 $stmt->close();
             } catch (Exception $e) {
@@ -116,13 +121,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($registerError === '' && !has_field_errors($fieldErrors)) {
         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
+        // Accounts with a @wingmate.com email are automatically made administrators
+        if (str_ends_with($email, '@wingmate.com')) {
+            $user_type = 'administrator';
+        } else {
+            $user_type = 'standard';
+        }
+
+
         $conn->begin_transaction();
 
         try {
             // Insert user credentials
-            $stmt = $conn->prepare("INSERT INTO Users (email, password_hash, created_at, user_type, account_status, suspended_until) 
-            VALUES (?, ?, NOW(), 'standard', 'active', NULL)");
-            $stmt->bind_param("ss", $email, $hashedPassword);
+            $stmt = $conn->prepare("INSERT INTO Users (email, password_hash, created_at, user_type, account_status, suspended_until)
+            VALUES (?, ?, NOW(), ?, 'active', NULL)");
+            $stmt->bind_param("sss", $email, $hashedPassword, $user_type);
             $stmt->execute();
             $stmt->close();
 
@@ -137,7 +150,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn->commit();
             session_regenerate_id(true);
             $_SESSION['user_id'] = $newUserId;
-            header('Location: /features/friends/friends.php');
+            $_SESSION['user_type'] = $user_type;
+
+            // Redirect admins to admin dashboard, standard users to friends page
+            if ($user_type === 'administrator') {
+                header('Location: /features/admin/admin.php');
+            } else {
+                header('Location: /features/friends/friends.php');
+            }
             exit;
         } catch (Exception $e) {
             $conn->rollback();
