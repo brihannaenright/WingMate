@@ -35,10 +35,10 @@
                     <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/profile/profile.php') !== false ? 'active' : ''; ?>" href="/features/profile/profile.php">Profile</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">Swipe</a>
+                    <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/swipe/swipe.php') !== false ? 'active' : ''; ?>" href="/features/swipe/swipe.php">Swipe</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">Matches</a>
+                    <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/matches/matches.php') !== false ? 'active' : ''; ?>" href="/features/matches/matches.php">Matches</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/friends/friends.php') !== false ? 'active' : ''; ?>" href="/features/friends/friends.php">Friends</a>
@@ -53,3 +53,28 @@
         </div>
     </div>
 </nav>
+
+<script>
+    // Smooth page transitions - no extra requests, just visual feedback
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            const href = this.getAttribute('href');
+            
+            // Only apply transition for internal navigation links that will cause reload
+            if (href && href !== '#' && !href.startsWith('javascript:')) {
+                document.body.classList.add('page-loading');
+            }
+        });
+    });
+
+    // Auto-collapse mobile dropdown after selection
+    const navbarCollapse = document.getElementById('navbarNav');
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', () => {
+            const bsCollapse = new bootstrap.Collapse(navbarCollapse, { toggle: false });
+            if (navbarCollapse.classList.contains('show')) {
+                bsCollapse.hide();
+            }
+        });
+    });
+</script>
