@@ -53,3 +53,28 @@
         </div>
     </div>
 </nav>
+
+<script>
+    // Smooth page transitions - no extra requests, just visual feedback
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            const href = this.getAttribute('href');
+            
+            // Only apply transition for internal navigation links that will cause reload
+            if (href && href !== '#' && !href.startsWith('javascript:')) {
+                document.body.classList.add('page-loading');
+            }
+        });
+    });
+
+    // Auto-collapse mobile dropdown after selection
+    const navbarCollapse = document.getElementById('navbarNav');
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', () => {
+            const bsCollapse = new bootstrap.Collapse(navbarCollapse, { toggle: false });
+            if (navbarCollapse.classList.contains('show')) {
+                bsCollapse.hide();
+            }
+        });
+    });
+</script>
