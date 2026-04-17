@@ -14,6 +14,8 @@
     --wm-button-radius: 15px;
     --wm-button-width: 130px;
     --wm-button-height: 45px;
+    --wm-error-color: #C30E59;
+    --wm-success-color: #F2AE66;
 }
 
 /** * Global border-box settings.
@@ -79,4 +81,62 @@ p{
     border-radius: var(--wm-button-radius);
     background: #F5F5F5;
     padding: 8px 16px !important;
+}
+
+/* Global Error Styling */
+.field-error {
+    margin: 6px 0 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--wm-error-color);
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.error-icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--wm-error-color);
+    color: #FFFFFF;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    flex: 0 0 16px;
+}
+
+.general-error {
+    margin-top: 8px;
+    margin-bottom: 8px;
+    color: var(--wm-error-color);
+    font-size: 14px;
+}
+
+.general-success {
+    margin-top: 8px;
+    margin-bottom: 8px;
+    color: var(--wm-success-color);
+    font-size: 14px;
+}
+
+.alert-wingmate {
+    background-color: #f8d09d ;
+    border: 1px solid #F2AE66;
+    color: #000;
+    font-size: 14px;
+    padding: 12px 20px;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+
+.alert-wingmate p {
+    font-size: 14px;
+    font-weight: 400;
+    margin: 0;
+}
+
+.alert-wingmate strong {
+    font-weight: 600;
 }
