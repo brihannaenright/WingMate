@@ -32,6 +32,9 @@ function wingmate_start_secure_session(): void
         $_SESSION['created_at'] = time();
     }
 
+    // Initialize last activity time for idle timeout tracking
+    wingmate_initialize_last_activity();
+
     //changes the session ID every 15 minutes
     if (!isset($_SESSION['last_regenerated_at']) || time() - (int) $_SESSION['last_regenerated_at'] > 900) {
         session_regenerate_id(true);
@@ -94,4 +97,35 @@ function wingmate_destroy_session(): void
     }
 
     session_destroy();
+}
+
+function wingmate_check_session_idle_timeout(int $idle_timeout = 1800): bool
+{
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        return false;
+    }
+
+    // Check if last_activity is set and if session has exceeded idle timeout
+    if (isset($_SESSION['last_activity'])) {
+        if (time() - (int) $_SESSION['last_activity'] > $idle_timeout) {
+            // Session has been idle too long - destroy it
+            wingmate_destroy_session();
+            return false;
+        }
+    }
+
+    // Update last activity time
+    $_SESSION['last_activity'] = time();
+    return true;
+}
+
+function wingmate_initialize_last_activity(): void
+{
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        return;
+    }
+
+    if (!isset($_SESSION['last_activity'])) {
+        $_SESSION['last_activity'] = time();
+    }
 }
