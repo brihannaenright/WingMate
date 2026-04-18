@@ -545,6 +545,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const groupName = document.getElementById('groupName').value.trim();
         const checkedFriends = Array.from(document.querySelectorAll('.friend-checkbox:checked')).map(cb => parseInt(cb.value));
         const createGroupError = document.getElementById('createGroupError');
+        const submitButton = document.querySelector('button[form="createGroupForm"]');
+
+        // Prevent double submissions
+        if (submitButton.disabled) return;
 
         // Validation
         let hasErrors = false;
@@ -577,6 +581,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (hasErrors) return;
 
+        // Disable submit button during request
+        submitButton.disabled = true;
+        submitButton.style.opacity = '0.6';
+        submitButton.style.cursor = 'not-allowed';
+
         // Build FormData for submission
         const formData = new FormData();
         formData.append('csrf_token', csrfToken);
@@ -601,12 +610,20 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 createGroupError.textContent = data.error || 'Failed to create group';
                 createGroupError.classList.remove('d-none');
+                // Re-enable button on error
+                submitButton.disabled = false;
+                submitButton.style.opacity = '1';
+                submitButton.style.cursor = 'pointer';
             }
         })
         .catch(err => {
             console.error(err);
             createGroupError.textContent = 'Error creating group. Please try again.';
             createGroupError.classList.remove('d-none');
+            // Re-enable button on error
+            submitButton.disabled = false;
+            submitButton.style.opacity = '1';
+            submitButton.style.cursor = 'pointer';
         });
     });
 

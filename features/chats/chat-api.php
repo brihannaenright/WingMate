@@ -453,12 +453,12 @@ if ($action === 'get_group_chat') {
         exit;
     }
 
-    // Verify user is member of this group
+    // Verify user is member of this group and check if they're an admin
     $stmt = $conn->prepare("
-        SELECT c.chat_id, c.group_name, c.created_by
+        SELECT c.chat_id, c.group_name, c.created_by, cm.role
         FROM Chats c
         JOIN Chat_Members cm ON c.chat_id = cm.chat_id
-        WHERE c.chat_id = ? AND cm.user_id = ? AND c.chat_type = 'group'
+        WHERE c.chat_id = ? AND cm.user_id = ? AND c.chat_type = 'group' AND cm.left_at IS NULL
     ");
     $stmt->bind_param('ii', $group_id, $current_user_id);
     $stmt->execute();
@@ -476,7 +476,7 @@ if ($action === 'get_group_chat') {
 
     echo json_encode([
         'chat_id' => $group['chat_id'],
-        'is_creator' => ($group['created_by'] == $current_user_id)
+        'is_creator' => ($group['role'] === 'admin')
     ]);
     exit;
 }
@@ -526,7 +526,7 @@ if ($action === 'get_group_members') {
     exit;
 }
 
-// Kick user from group (creator only)
+// Kick user from group (admin only)
 if ($action === 'kick_user' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $group_id = (int) ($_POST['group_id'] ?? 0);
     $member_id = (int) ($_POST['member_id'] ?? 0);
@@ -537,32 +537,51 @@ if ($action === 'kick_user' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Verify current user is creator
-    $creatorStmt = $conn->prepare("SELECT created_by FROM Chats WHERE chat_id = ? AND chat_type = 'group'");
-    $creatorStmt->bind_param('i', $group_id);
-    $creatorStmt->execute();
-    $creatorResult = $creatorStmt->get_result();
+    // Verify current user is admin
+    $adminStmt = $conn->prepare("
+        SELECT role FROM Chat_Members 
+        WHERE chat_id = ? AND user_id = ? AND left_at IS NULL
+    ");
+    $adminStmt->bind_param('ii', $group_id, $current_user_id);
+    $adminStmt->execute();
+    $adminResult = $adminStmt->get_result();
 
-    if ($creatorResult->num_rows === 0) {
-        http_response_code(404);
-        echo json_encode(['error' => 'Group not found']);
-        $creatorStmt->close();
-        exit;
-    }
-
-    $group = $creatorResult->fetch_assoc();
-    $creatorStmt->close();
-
-    if ($group['created_by'] != $current_user_id) {
+    if ($adminResult->num_rows === 0) {
         http_response_code(403);
-        echo json_encode(['error' => 'Only group creator can kick members']);
+        echo json_encode(['error' => 'You are not a member of this group']);
+        $adminStmt->close();
         exit;
     }
 
-    // Cannot kick creator
-    if ($member_id === $group['created_by']) {
+    $userRole = $adminResult->fetch_assoc()['role'];
+    $adminStmt->close();
+
+    if ($userRole !== 'admin') {
+        http_response_code(403);
+        echo json_encode(['error' => 'Only group admins can kick members']);
+        exit;
+    }
+
+    // Get the member being kicked to check if they're admin
+    $memberStmt = $conn->prepare("SELECT role FROM Chat_Members WHERE chat_id = ? AND user_id = ?");
+    $memberStmt->bind_param('ii', $group_id, $member_id);
+    $memberStmt->execute();
+    $memberResult = $memberStmt->get_result();
+
+    if ($memberResult->num_rows === 0) {
         http_response_code(400);
-        echo json_encode(['error' => 'Cannot kick group creator']);
+        echo json_encode(['error' => 'Member not found']);
+        $memberStmt->close();
+        exit;
+    }
+
+    $memberRole = $memberResult->fetch_assoc()['role'];
+    $memberStmt->close();
+
+    // Cannot kick an admin
+    if ($memberRole === 'admin') {
+        http_response_code(400);
+        echo json_encode(['error' => 'Cannot kick group admin']);
         exit;
     }
 
@@ -593,7 +612,7 @@ if ($action === 'leave_group' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Verify user is member and not creator
+    // Verify user is member of the group
     $stmt = $conn->prepare("
         SELECT c.created_by FROM Chats c
         JOIN Chat_Members cm ON c.chat_id = cm.chat_id
@@ -613,10 +632,37 @@ if ($action === 'leave_group' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $group = $result->fetch_assoc();
     $stmt->close();
 
+    // If leaving user is the creator/admin, transfer admin role to another active member
     if ($group['created_by'] == $current_user_id) {
-        http_response_code(403);
-        echo json_encode(['error' => 'Creator cannot leave - delete the group instead']);
-        exit;
+        // Find the earliest joined active member to become new admin
+        $stmt = $conn->prepare("
+            SELECT user_id FROM Chat_Members
+            WHERE chat_id = ? AND user_id != ? AND left_at IS NULL
+            ORDER BY joined_at ASC
+            LIMIT 1
+        ");
+        $stmt->bind_param('ii', $group_id, $current_user_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        if ($result->num_rows > 0) {
+            // Transfer admin role to the next member
+            $new_admin = $result->fetch_assoc();
+            $new_admin_id = $new_admin['user_id'];
+            $stmt->close();
+
+            // Update new admin role
+            $stmt = $conn->prepare("
+                UPDATE Chat_Members SET role = 'admin'
+                WHERE chat_id = ? AND user_id = ?
+            ");
+            $stmt->bind_param('ii', $group_id, $new_admin_id);
+            $stmt->execute();
+            $stmt->close();
+        } else {
+            $stmt->close();
+            // No other members, group will be empty - still allow creator to leave
+        }
     }
 
     // Mark user as left
@@ -636,7 +682,7 @@ if ($action === 'leave_group' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// Delete a group (creator only)
+// Delete a group (admin only)
 if ($action === 'delete_group' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $group_id = (int) ($_POST['group_id'] ?? 0);
 
@@ -646,15 +692,15 @@ if ($action === 'delete_group' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Verify user is creator
-    $stmt = $conn->prepare("SELECT created_by FROM Chats WHERE chat_id = ? AND chat_type = 'group'");
+    // Verify user is admin
+    $stmt = $conn->prepare("SELECT role FROM Chat_Members WHERE chat_id = ? AND user_id = ? AND left_at IS NULL");
     if (!$stmt) {
         http_response_code(500);
         echo json_encode(['error' => 'Database error: ' . $conn->error]);
         exit;
     }
     
-    $stmt->bind_param('i', $group_id);
+    $stmt->bind_param('ii', $group_id, $current_user_id);
     $stmt->execute();
     $result = $stmt->get_result();
 
@@ -665,12 +711,12 @@ if ($action === 'delete_group' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    $group = $result->fetch_assoc();
+    $userRole = $result->fetch_assoc()['role'];
     $stmt->close();
 
-    if ($group['created_by'] != $current_user_id) {
+    if ($userRole !== 'admin') {
         http_response_code(403);
-        echo json_encode(['error' => 'Only creator can delete group']);
+        echo json_encode(['error' => 'Only group admin can delete group']);
         exit;
     }
 
