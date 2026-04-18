@@ -154,6 +154,15 @@
         height: 16px;
     }
 
+    /* Gender line under location */
+    .profile-gender {
+        font-family: var(--wm-font-family);
+        font-size: 13px;
+        font-weight: 600;
+        color: #555;
+        margin-bottom: 10px;
+    }
+
     /* Short bio paragraph */
     .profile-bio {
         font-family: var(--wm-font-family);
