@@ -110,15 +110,23 @@ if ($action === 'get_messages') {
 
     $stmt = $conn->prepare("
         SELECT m.message_id, m.sender_id, u.user_id, up.first_name, up.last_name,
-               m.content, m.sent_at, m.is_removed
+               m.content, m.sent_at, m.is_removed, 
+               mr.delivered_at, mr.read_at
         FROM Messages m
         JOIN Users u ON m.sender_id = u.user_id
         JOIN User_Profile up ON u.user_id = up.user_id
+        LEFT JOIN Message_Receipts mr ON m.message_id = mr.message_id 
+            AND (
+                (m.sender_id = ? AND mr.receiver_id = (
+                    SELECT MIN(receiver_id) FROM Message_Receipts WHERE message_id = m.message_id LIMIT 1
+                ))
+                OR (m.sender_id != ? AND mr.receiver_id = ?)
+            )
         WHERE m.chat_id = ?
         ORDER BY m.sent_at DESC
         LIMIT ?
     ");
-    $stmt->bind_param('ii', $chat_id, $limit);
+    $stmt->bind_param('iiiii', $current_user_id, $current_user_id, $current_user_id, $chat_id, $limit);
     $stmt->execute();
     $messages = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
@@ -153,10 +161,64 @@ if ($action === 'send_message' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->bind_param('iis', $chat_id, $current_user_id, $content);
     
     if ($stmt->execute()) {
-        echo json_encode(['success' => true, 'message_id' => $stmt->insert_id]);
+        $message_id = $stmt->insert_id;
+        $stmt->close();
+
+        // Get all chat members to create receipts
+        $membersStmt = $conn->prepare("
+            SELECT user_id FROM Chat_Members 
+            WHERE chat_id = ? AND user_id != ?
+        ");
+        $membersStmt->bind_param('ii', $chat_id, $current_user_id);
+        $membersStmt->execute();
+        $members = $membersStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $membersStmt->close();
+
+        // Create receipt records for each recipient
+        $receiptStmt = $conn->prepare("
+            INSERT INTO Message_Receipts (message_id, receiver_id, delivered_at)
+            VALUES (?, ?, UTC_TIMESTAMP())
+        ");
+
+        foreach ($members as $member) {
+            $receiver_id = $member['user_id'];
+            $receiptStmt->bind_param('ii', $message_id, $receiver_id);
+            $receiptStmt->execute();
+        }
+        $receiptStmt->close();
+
+        echo json_encode(['success' => true, 'message_id' => $message_id]);
     } else {
         http_response_code(500);
         echo json_encode(['error' => 'Failed to send message']);
+        $stmt->close();
+    }
+    exit;
+}
+
+// Mark message as read
+if ($action === 'mark_message_read' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $message_id = (int) ($_POST['message_id'] ?? 0);
+
+    if (!$message_id) {
+        http_response_code(400);
+        echo json_encode(['error' => 'message_id required']);
+        exit;
+    }
+
+    // Update the receipt with read_at timestamp
+    $stmt = $conn->prepare("
+        UPDATE Message_Receipts 
+        SET read_at = UTC_TIMESTAMP() 
+        WHERE message_id = ? AND receiver_id = ? AND read_at IS NULL
+    ");
+    $stmt->bind_param('ii', $message_id, $current_user_id);
+
+    if ($stmt->execute()) {
+        echo json_encode(['success' => true]);
+    } else {
+        http_response_code(500);
+        echo json_encode(['error' => 'Failed to mark message as read']);
     }
     $stmt->close();
     exit;

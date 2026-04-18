@@ -45,7 +45,7 @@ if (!defined('CHAT_UI_INCLUDED')) {
             </div>
             <div class="chat-input-area">
                 <form id="messageForm" class="message-form">
-                    <textarea id="messageInput" class="message-input" placeholder="Type a message..." rows="1"></textarea>
+                    <textarea id="messageInput" class="message-input" placeholder="Type a message..." rows="1" autocomplete="off"></textarea>
                     <button type="submit" class="btn-send">Send</button>
                 </form>
             </div>
@@ -324,8 +324,22 @@ const ChatManager = {
         this.chatContent = document.getElementById('chatContent');
 
         if (this.messageForm) {
-            // Handle message form submission
-            this.messageForm.addEventListener('submit', (e) => this.handleSendMessage(e));
+            // Handle enter key to send message (Shift+Enter for new lines)
+            this.messageInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.handleSendMessage(e);
+                }
+            });
+            
+            // Handle send button click
+            const sendBtn = this.messageForm.querySelector('.btn-send');
+            if (sendBtn) {
+                sendBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.handleSendMessage(e);
+                });
+            }
         }
     },
 
@@ -468,13 +482,6 @@ const ChatManager = {
                 return;
             }
 
-            // Optional optimization: avoid full redraw if nothing changed
-            if (this.lastMessageCount !== undefined && this.lastMessageCount === data.messages.length && data.messages.length > 0) {
-                return;
-            }
-
-            this.lastMessageCount = data.messages.length;
-
             messagesContainer.innerHTML = '';
 
             if (data.messages.length === 0) {
@@ -498,19 +505,43 @@ const ChatManager = {
                     </button>`;
                 }
 
+                // Determine receipt status for sent messages
+                let receiptStatus = '';
+                let timeClass = 'message-time';
+                if (msg.sender_id == this.currentUserId) {
+                    if (msg.read_at) {
+                        receiptStatus = ' • Read';
+                        timeClass = 'message-time message-read';
+                    } else if (msg.delivered_at) {
+                        receiptStatus = ' • Delivered';
+                    }
+                }
+
                 messageDiv.innerHTML = `
                     ${senderName}
                     <div class="message-wrapper">
                         <div class="message-content">${this.escapeHtml(msg.content)}</div>
                     </div>
                     <div class="message-footer">
-                        <span class="message-time">${this.formatTime(msg.sent_at)}</span>
+                        <span class="${timeClass}">${this.formatTime(msg.sent_at)}${receiptStatus}</span>
                         ${reportButton}
                     </div>
                 `;
 
                 messagesContainer.appendChild(messageDiv);
             });
+
+            // Mark all unread received messages as read during polling
+            const unreadMessageIds = [];
+            data.messages.forEach(msg => {
+                if (msg.sender_id != this.currentUserId && msg.read_at === null) {
+                    unreadMessageIds.push(msg.message_id);
+                }
+            });
+            
+            if (unreadMessageIds.length > 0) {
+                this.markMessagesAsRead(unreadMessageIds);
+            }
 
             // Add event listeners to report buttons
             document.querySelectorAll('.message-report-btn').forEach(btn => {
@@ -535,7 +566,24 @@ const ChatManager = {
         if (!this.currentChatId || this.messageInput.value.trim() === '') return;
 
         const content = this.messageInput.value.trim();
-        this.messageInput.value = '';
+        
+        // Clone and replace textarea to clear browser form history
+        const newTextarea = this.messageInput.cloneNode(false);
+        newTextarea.id = 'messageInput';
+        newTextarea.className = 'message-input';
+        newTextarea.setAttribute('placeholder', 'Type a message...');
+        newTextarea.setAttribute('rows', '1');
+        newTextarea.setAttribute('autocomplete', 'off');
+        this.messageInput.parentNode.replaceChild(newTextarea, this.messageInput);
+        this.messageInput = newTextarea;
+        
+        // Reattach event listeners to new textarea
+        this.messageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.handleSendMessage(e);
+            }
+        });
 
         const formData = new FormData();
         formData.append('action', 'send_message');
@@ -552,12 +600,13 @@ const ChatManager = {
                 this.loadMessages();
             } else {
                 showToast('Error: ' + (data.error || 'Failed to send message'), 'error');
-                this.messageInput.value = content; // Restore message
+                // Restore message only on error
+                this.messageInput.value = content;
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            this.messageInput.value = content; // Restore message
+            this.messageInput.value = content; // Restore message only on error
         });
     },
 
@@ -595,6 +644,35 @@ const ChatManager = {
         // Open the report modal
         const modal = new bootstrap.Modal(document.getElementById('reportModal'));
         modal.show();
+    },
+
+    markMessageAsRead: function(messageId) {
+        const formData = new FormData();
+        formData.append('action', 'mark_message_read');
+        formData.append('message_id', messageId);
+
+        fetch('/features/chats/chat-api.php', {
+            method: 'POST',
+            body: formData
+        })
+        .catch(error => console.error('Error marking message as read:', error));
+    },
+
+    markMessagesAsRead: function(messageIds) {
+        if (messageIds.length === 0) return;
+
+        // Mark all messages as read - next polling cycle will refresh the display
+        messageIds.forEach(messageId => {
+            const formData = new FormData();
+            formData.append('action', 'mark_message_read');
+            formData.append('message_id', messageId);
+
+            fetch('/features/chats/chat-api.php', {
+                method: 'POST',
+                body: formData
+            })
+            .catch(error => console.error('Error marking message as read:', error));
+        });
     }
 };
 
