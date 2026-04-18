@@ -69,10 +69,12 @@ document.getElementById('editBio')?.addEventListener('input', function() {
 
 function saveBio() {
     const newBio = document.getElementById('editBio').value.trim();
+    const newGender = document.getElementById('editGender').value;
 
     const formData = new FormData();
     formData.append('action', 'update_bio');
     formData.append('bio', newBio);
+    formData.append('gender', newGender);
 
     fetch(window.location.pathname, { method: 'POST', body: formData })
         .then(res => res.text().then(text => {
@@ -84,7 +86,7 @@ function saveBio() {
                 document.getElementById('profileBio').textContent = newBio;
                 bootstrap.Modal.getInstance(document.getElementById('bioModal')).hide();
             } else {
-                alert('Failed to save bio: ' + (data.error || 'Unknown error'));
+                alert('Failed to save: ' + (data.error || 'Unknown error'));
             }
         })
         .catch(err => alert('Error: ' + err.message));
