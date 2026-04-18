@@ -83,6 +83,77 @@ p{
     padding: 8px 16px !important;
 }
 
+.notification-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    background: #C30E59;
+    color: white;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 6px;
+    animation: pulse 0.5s ease-in-out;
+}
+
+.notification-badge.hidden {
+    display: none;
+}
+
+@keyframes pulse {
+    0% { transform: scale(0.8); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Navbar mobile dropdown improvements */
+@media (max-width: 991px) {
+    .navbar-collapse {
+        background-color: white;
+        border-radius: 0.375rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-top: 0.5rem;
+        z-index: 1050;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+    }
+
+    .navbar-nav {
+        padding: 0.5rem 1rem;
+    }
+
+    .nav-item {
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .nav-item:last-child {
+        border-bottom: none;
+    }
+}
+
+/* Smooth transitions for nav links */
+.nav-link {
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.nav-link:hover {
+    color: #C30E59;
+}
+
+/* Page content fade transition */
+body {
+    opacity: 1;
+    transition: opacity 0.2s ease;
+}
+
+body.page-loading {
+    opacity: 0.7;
+}
+
 /* Global Error Styling */
 .field-error {
     margin: 6px 0 0;

@@ -35,13 +35,19 @@
                     <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/profile/profile.php') !== false ? 'active' : ''; ?>" href="/features/profile/profile.php">Profile</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">Swipe</a>
+                    <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/swipe/swipe.php') !== false ? 'active' : ''; ?>" href="/features/swipe/swipe.php">Swipe</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/matches/matches.php') !== false ? 'active' : ''; ?>" href="/features/matches/matches.php">Matches</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/friends/friends.php') !== false ? 'active' : ''; ?>" href="/features/friends/friends.php">Friends</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/notifications/notifications.php') !== false ? 'active' : ''; ?>" href="/features/notifications/notifications.php">
+                        Notifications
+                        <span class="notification-badge hidden" id="notificationBadge"></span>
+                    </a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="#">Vote</a>
@@ -53,3 +59,50 @@
         </div>
     </div>
 </nav>
+
+<script>
+    // Smooth page transitions - no extra requests, just visual feedback
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            const href = this.getAttribute('href');
+            
+            // Only apply transition for internal navigation links that will cause reload
+            if (href && href !== '#' && !href.startsWith('javascript:')) {
+                document.body.classList.add('page-loading');
+            }
+        });
+    });
+
+    // Auto-collapse mobile dropdown after selection
+    const navbarCollapse = document.getElementById('navbarNav');
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', () => {
+            const bsCollapse = new bootstrap.Collapse(navbarCollapse, { toggle: false });
+            if (navbarCollapse.classList.contains('show')) {
+                bsCollapse.hide();
+            }
+        });
+    });
+
+    // Load unread notification count
+    function updateNotificationBadge() {
+        fetch('/features/notifications/notifications-api.php')
+            .then(response => response.json())
+            .then(data => {
+                const badge = document.getElementById('notificationBadge');
+                if (data.unread_count > 0) {
+                    badge.textContent = data.unread_count > 9 ? '9+' : data.unread_count;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            })
+            .catch(error => console.error('Error fetching notifications:', error));
+    }
+
+    // Update notif badge every 10 seconds
+    document.addEventListener('DOMContentLoaded', function() {
+        updateNotificationBadge();
+        setInterval(updateNotificationBadge, 10000);
+    });
+</script>
