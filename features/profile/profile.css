@@ -564,6 +564,19 @@
         transform: translateY(-1px);
     }
 
+    /* Empty-state text when user hasn't picked any Looking For tags yet */
+    .profile-looking-empty {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 14px;
+        font-style: italic;
+    }
+
+    .profile-looking-empty a {
+        color: #FFFFFF;
+        text-decoration: underline;
+        font-weight: 600;
+    }
+
     /* Round "+" button to add a new "Looking For" item */
     .profile-looking-add {
         width: 34px;
