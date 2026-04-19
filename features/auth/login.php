@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $password = clean_input($_POST['password']);
     
         try {
-            $stmt = $conn->prepare("SELECT user_id, password_hash, user_type, account_status, suspended_until FROM Users WHERE email = ?");
+            $stmt = $conn->prepare("SELECT user_id, password_hash FROM Users WHERE email = ?");
             $stmt->bind_param("s", $email);
             $stmt->execute();
             $result = $stmt->get_result();
@@ -40,36 +40,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $user = $result->fetch_assoc();
                 // Verify password against stored hash
                 if (password_verify($password, $user['password_hash'])) {
-                    // Block banned accounts permanently
-                    if ($user['account_status'] === 'banned') {
-                        $loginError = 'Your account has been permanently banned.';
-                    // Block suspended accounts (check if suspension has expired)
-                    } elseif ($user['account_status'] === 'suspended') {
-                        // Auto-unsuspend if the suspension period has passed
-                        if (!empty($user['suspended_until']) && strtotime($user['suspended_until']) <= time()) {
-                            $stmt2 = $conn->prepare("UPDATE Users SET account_status = 'active', suspended_until = NULL WHERE user_id = ?");
-                            $stmt2->bind_param("i", $user['user_id']);
-                            $stmt2->execute();
-                            $stmt2->close();
-                            $user['account_status'] = 'active';
-                        } else {
-                            $loginError = 'Your account is suspended until ' . htmlspecialchars($user['suspended_until']) . '.';
-                        }
-                    }
-
-                    if ($user['account_status'] === 'active') {
-                        session_regenerate_id(true);
-                        $_SESSION['user_id'] = $user['user_id'];
-                        $_SESSION['user_type'] = $user['user_type'];
-
-                        // Redirect admins to admin dashboard, standard users to friends page
-                        if ($user['user_type'] === 'administrator') {
-                            header('Location: /features/admin/admin.php');
-                        } else {
-                            header('Location: /features/friends/friends.php');
-                        }
-                        exit;
-                    }
+                    session_regenerate_id(true);
+                    $_SESSION['user_id'] = $user['user_id'];
+                    header('Location: /features/friends/friends.php');
+                    exit;
                 } else {
                     $loginError = 'Incorrect email or password.';
                 }
@@ -126,6 +100,7 @@ function clean_input($data) {
                             <img src="/assets/images/lock-icon.svg" alt="" class="input-icon">
                             <input type="password" name="password" placeholder="Password" required>
                         </div>
+                    <a href="/features/auth/forgot_password.php" class="forgot-link">Forgot password?</a>
                     <div class="buttons">
                         <button type="button" onclick="window.location.href='/features/auth/register.php'">Register</button>
                         <button class="button-secondary" type="submit">Login</button>
