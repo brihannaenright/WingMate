@@ -15,7 +15,7 @@
 
 <body>
 
-<nav class="navbar navbar-expand-lg navbar-light wingmate-navbar">
+<nav class="navbar navbar-expand-lg navbar-light wingmate-navbar sticky-top">
     <div class="container-fluid">
         <!-- Logo on the left -->
         <div class="navbar-brand">
@@ -50,7 +50,7 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="#">Vote</a>
+                    <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/vote/vote.php') !== false ? 'active' : ''; ?>" href="/features/vote/vote.php">Vote</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/settings/settings.php') !== false ? 'active' : ''; ?>" href="/features/settings/settings.php">Settings</a>
