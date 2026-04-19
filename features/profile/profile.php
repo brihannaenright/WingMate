@@ -128,12 +128,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'update_bio') {
         header('Content-Type: application/json');
         $bio = trim($_POST['bio'] ?? '');
+        $gender = $_POST['gender'] ?? '';
         if (strlen($bio) > 500) {
             echo json_encode(['success' => false, 'error' => 'Bio too long']);
             exit;
         }
-        $stmt = $conn->prepare("UPDATE User_Profile SET user_bio = ? WHERE user_id = ?");
-        $stmt->bind_param('si', $bio, $current_user_id);
+        $allowedGenders = ['male', 'female', 'non-binary', ''];
+        if (!in_array($gender, $allowedGenders, true)) {
+            echo json_encode(['success' => false, 'error' => 'Invalid gender']);
+            exit;
+        }
+        $genderToSave = $gender === '' ? null : $gender;
+        $stmt = $conn->prepare("UPDATE User_Profile SET user_bio = ?, gender = ? WHERE user_id = ?");
+        $stmt->bind_param('ssi', $bio, $genderToSave, $current_user_id);
         $stmt->execute();
         $stmt->close();
         echo json_encode(['success' => true]);
@@ -186,7 +193,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Fetch profile data from DB
-$stmt = $conn->prepare("SELECT first_name, last_name, date_of_birth, general_location, latitude, longitude, user_bio FROM User_Profile WHERE user_id = ?");
+$stmt = $conn->prepare("SELECT first_name, last_name, date_of_birth, gender, general_location, latitude, longitude, user_bio FROM User_Profile WHERE user_id = ?");
 $stmt->bind_param('i', $current_user_id);
 $stmt->execute();
 $profile = $stmt->get_result()->fetch_assoc();
@@ -207,6 +214,7 @@ $displayLocation = htmlspecialchars($profile['general_location'] ?? '');
 $userLat = $profile['latitude'] ?? '';
 $userLng = $profile['longitude'] ?? '';
 $userBio = htmlspecialchars($profile['user_bio'] ?? '');
+$userGender = $profile['gender'] ?? '';
 
 // Fetch all tags
 $allTags = [];
@@ -344,6 +352,15 @@ $stmt->close();
                         </div>
                         <input type="hidden" id="editLat" value="<?php echo $userLat; ?>">
                         <input type="hidden" id="editLng" value="<?php echo $userLng; ?>">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editGender" class="form-label profile-modal-label">Gender</label>
+                        <select class="form-control profile-modal-input" id="editGender">
+                            <option value="">Prefer not to say</option>
+                            <option value="male" <?php echo $userGender === 'male' ? 'selected' : ''; ?>>Male</option>
+                            <option value="female" <?php echo $userGender === 'female' ? 'selected' : ''; ?>>Female</option>
+                            <option value="non-binary" <?php echo $userGender === 'non-binary' ? 'selected' : ''; ?>>Non-binary</option>
+                        </select>
                     </div>
                     <div class="mb-3">
                         <label for="editBio" class="form-label profile-modal-label">Bio</label>
