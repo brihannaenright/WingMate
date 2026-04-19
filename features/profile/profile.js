@@ -349,18 +349,7 @@ function updateProfilePills() {
         });
     aboutMe.appendChild(aboutBtn);
 
-    // Update Looking For pills
-    const lookingFor = document.getElementById('lookingForPills');
-    const lookingBtn = lookingFor.querySelector('.profile-looking-add');
-    lookingFor.innerHTML = '';
-    allTags.filter(t => selectedLookingFor.includes(parseInt(t.tag_id)))
-        .forEach(tag => {
-            const pill = document.createElement('span');
-            pill.className = 'profile-looking-pill';
-            pill.textContent = tag.tag_name;
-            lookingFor.appendChild(pill);
-        });
-    lookingFor.appendChild(lookingBtn);
+    // Looking For pills are read-only on the profile page — edited in Settings.
 }
 
 // --- Map Location Picker ---

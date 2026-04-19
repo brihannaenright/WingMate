@@ -20,7 +20,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $tagIds = json_decode($_POST['tag_ids'] ?? '[]', true);
         $selectionType = $_POST['selection_type'] ?? '';
 
-        if (!in_array($selectionType, ['about_me', 'looking_for'])) {
+        // Looking_for tags are managed from the settings page; profile only handles about_me
+        if ($selectionType !== 'about_me') {
             echo json_encode(['success' => false, 'error' => 'Invalid selection type']);
             exit;
         }
@@ -322,14 +323,17 @@ $stmt->close();
             </div>
         </div>
 
-        <!-- 4. Looking For (Bottom Right) -->
+        <!-- 4. Looking For (Bottom Right) - read-only, edit in Settings -->
         <div class="profile-looking-card">
             <h3 class="profile-looking-title">Looking For</h3>
             <div class="profile-looking-pills" id="lookingForPills">
-                <?php foreach ($userLookingForTags as $tag): ?>
-                    <span class="profile-looking-pill"><?php echo htmlspecialchars($tag['tag_name']); ?></span>
-                <?php endforeach; ?>
-                <button class="profile-looking-add" onclick="openTagPickerModal('looking_for')">+</button>
+                <?php if (empty($userLookingForTags)): ?>
+                    <span class="profile-looking-empty">Edit in <a href="/features/settings/settings.php">Settings</a></span>
+                <?php else: ?>
+                    <?php foreach ($userLookingForTags as $tag): ?>
+                        <span class="profile-looking-pill"><?php echo htmlspecialchars($tag['tag_name']); ?></span>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </div>
         </div>
 
