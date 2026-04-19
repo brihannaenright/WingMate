@@ -62,11 +62,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $_SESSION['user_id'] = $user['user_id'];
                         $_SESSION['user_type'] = $user['user_type'];
 
-                        // Redirect admins to admin dashboard, standard users to friends page
+                        // Redirect admins to admin dashboard, standard users to profile page
                         if ($user['user_type'] === 'administrator') {
                             header('Location: /features/admin/admin.php');
                         } else {
-                            header('Location: /features/friends/friends.php');
+                            header('Location: /features/profile/profile.php');
                         }
                         exit;
                     }
