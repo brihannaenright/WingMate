@@ -48,6 +48,30 @@
     cursor: pointer;
 }
 
+.btn-view-profile {
+    background-color: #C30E59;
+    color: #FFFFFF;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.25s ease;
+    font-family: "Inter", sans-serif;
+}
+
+.btn-view-profile:hover {
+    background-color: #E84B8A;
+    color: #FFFFFF;
+    text-decoration: none;
+}
+
+.btn-view-profile:active {
+    background-color: #A00A48;
+}
+
 /* Group avatar grid */
 .group-avatar-grid {
     display: grid;
