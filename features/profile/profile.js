@@ -60,6 +60,7 @@ function openBioModal() {
     document.getElementById('editBio').value = bioText;
     document.getElementById('editLocation').value = locText;
     document.getElementById('bioCharCount').textContent = bioText.length;
+    document.getElementById('editGender').value = (typeof userGender !== 'undefined') ? userGender : '';
 
     new bootstrap.Modal(document.getElementById('bioModal')).show();
 }
@@ -163,7 +164,7 @@ function openPicModal() {
 
     // Check if there's a primary photo
     if (currentPrimaryId && photos.length > 0) {
-        preview.src = photos[0].url;
+        preview.src = photos[0].photo_url;
         preview.style.display = '';
         previewEmpty.style.display = 'none';
     } else {
@@ -194,7 +195,8 @@ document.getElementById('picFileInput')?.addEventListener('change', function(e) 
 
 function saveProfilePic() {
     if (!selectedPicFile) {
-        bootstrap.Modal.getInstance(document.getElementById('picModal')).hide();
+        const picModal = bootstrap.Modal.getInstance(document.getElementById('picModal'));
+        if (picModal) picModal.hide();
         return;
     }
 
@@ -215,7 +217,8 @@ function saveProfilePic() {
                 currentIndex = 0;
                 updateCarousel();
                 currentPrimaryId = data.photo_id;
-                bootstrap.Modal.getInstance(document.getElementById('picModal')).hide();
+                const picModal = bootstrap.Modal.getInstance(document.getElementById('picModal'));
+                if (picModal) picModal.hide();
             } else {
                 alert('Upload failed: ' + (data.error || 'Unknown error'));
             }
@@ -242,7 +245,8 @@ function removeProfilePic() {
                 currentIndex = 0;
                 currentPrimaryId = null;
                 updateCarousel();
-                bootstrap.Modal.getInstance(document.getElementById('picModal')).hide();
+                const picModal = bootstrap.Modal.getInstance(document.getElementById('picModal'));
+                if (picModal) picModal.hide();
             } else {
                 alert('Remove failed: ' + (data.error || 'Unknown error'));
             }
@@ -260,7 +264,7 @@ function renderPhotosGrid() {
     const grid = document.getElementById('photosGrid');
     grid.innerHTML = photos.map((photo, i) => `
         <div class="profile-photo-thumb">
-            <img src="${photo.url}" alt="Photo ${i + 1}">
+            <img src="${photo.photo_url}" alt="Photo ${i + 1}">
             <button class="profile-photo-delete" onclick="deletePhoto(${i})">&times;</button>
         </div>
     `).join('');
@@ -293,7 +297,7 @@ document.getElementById('photoFileInput')?.addEventListener('change', function(e
         }))
         .then(data => {
             if (data.success) {
-                photos.push({ id: data.photo_id, url: data.photo_url });
+                photos.push({ photo_id: data.photo_id, photo_url: data.photo_url });
                 renderPhotosGrid();
                 updateCarousel();
             } else {
@@ -310,7 +314,7 @@ function deletePhoto(index) {
 
     const formData = new FormData();
     formData.append('action', 'delete_photo');
-    formData.append('photo_id', photo.id);
+    formData.append('photo_id', photo.photo_id);
 
     fetch(window.location.pathname, { method: 'POST', body: formData })
         .then(res => res.text().then(text => {
