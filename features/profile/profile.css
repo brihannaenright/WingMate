@@ -600,6 +600,317 @@
         transform: scale(1.1);
     }
 
+    /* ========== FRIEND COMMENTS SECTION STYLES ========== */
+
+    /* Main container for the comments section */
+    .friends-comments-section {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        position: relative;
+        z-index: 1;
+    }
+
+    /* Scrollable container for comments list */
+    .comments-list-container {
+        max-height: 400px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 4px 8px;
+    }
+
+    /* Scrollbar styling for Firefox */
+    .comments-list-container {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(195, 14, 89, 0.3) transparent;
+    }
+
+    /* Scrollbar styling for Chrome/Edge */
+    .comments-list-container::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .comments-list-container::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .comments-list-container::-webkit-scrollbar-thumb {
+        background: rgba(195, 14, 89, 0.3);
+        border-radius: 3px;
+    }
+
+    .comments-list-container::-webkit-scrollbar-thumb:hover {
+        background: rgba(195, 14, 89, 0.5);
+    }
+
+    /* Individual comment item container */
+    .comment-item {
+        background: #FAFAFA;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+        border: 1px solid #f0f0f0;
+        transition: background var(--profile-transition), border-color var(--profile-transition);
+    }
+
+    .comment-item:hover {
+        background: #F5F5F5;
+        border-color: rgba(195, 14, 89, 0.15);
+    }
+
+    /* Comment header with author info and actions */
+    .comment-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 10px;
+        gap: 12px;
+    }
+
+    /* Author info section with avatar and name */
+    .comment-author {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        flex: 1;
+    }
+
+    /* Avatar image in comment */
+    .comment-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        object-fit: cover;
+        background: #ddd;
+        flex-shrink: 0;
+    }
+
+    /* Placeholder avatar when user has no profile picture */
+    .comment-avatar-placeholder {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: #ddd;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        flex-shrink: 0;
+    }
+
+    /* Author info text container */
+    .comment-author-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .comment-author-info strong {
+        font-family: var(--wm-font-family);
+        font-size: 14px;
+        font-weight: 600;
+        color: #1A1A1A;
+    }
+
+    .comment-author-info small {
+        font-family: var(--wm-font-family);
+        font-size: 12px;
+        color: #999;
+    }
+
+    /* Comment action buttons (edit, delete) */
+    .comment-actions {
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+    }
+
+    /* Individual action button */
+    .btn-action {
+        background: transparent;
+        border: none;
+        padding: 4px 8px;
+        cursor: pointer;
+        font-size: 16px;
+        opacity: 0.6;
+        transition: opacity var(--profile-transition), transform var(--profile-transition);
+    }
+
+    .btn-action:hover {
+        opacity: 1;
+        transform: scale(1.15);
+    }
+
+    /* Comment text content */
+    .comment-text {
+        font-family: var(--wm-font-family);
+        font-size: 14px;
+        color: #333;
+        line-height: 1.5;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        margin: 0;
+        white-space: pre-wrap;
+    }
+
+    /* Edit form container (hidden by default) */
+    .comment-edit-form {
+        margin-top: 12px;
+        padding: 12px;
+        background: #FFF;
+        border-radius: 8px;
+        border: 1px solid rgba(195, 14, 89, 0.15);
+    }
+
+    .comment-edit-form.d-none {
+        display: none;
+    }
+
+    /* Comment textarea for adding/editing */
+    .comment-textarea {
+        width: 100%;
+        min-height: 80px;
+        padding: 12px;
+        border: 1.5px solid #ddd;
+        border-radius: 8px;
+        font-family: var(--wm-font-family);
+        font-size: 14px;
+        resize: vertical;
+        transition: border-color var(--profile-transition), box-shadow var(--profile-transition);
+    }
+
+    .comment-textarea:focus {
+        outline: none;
+        border-color: var(--profile-pink);
+        box-shadow: 0 0 0 3px rgba(195, 14, 89, 0.1);
+    }
+
+    /* Form footer with character count and submit button */
+    .comment-form-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 8px;
+        gap: 12px;
+    }
+
+    /* Character count indicator */
+    .char-count {
+        font-family: var(--wm-font-family);
+        font-size: 12px;
+        color: #999;
+    }
+
+    /* Submit/Add comment button */
+    #submitCommentBtn {
+        background: var(--profile-pink);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-family: var(--wm-font-family);
+        font-weight: 600;
+        font-size: 13px;
+        cursor: pointer;
+        transition: background var(--profile-transition), transform var(--profile-transition);
+    }
+
+    #submitCommentBtn:hover:not(:disabled) {
+        background: var(--profile-pink-light);
+        transform: translateY(-1px);
+    }
+
+    #submitCommentBtn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    /* Error message for comments */
+    #commentError {
+        border: 1px solid #f5c6cb;
+        background-color: #f8d7da;
+        color: #721c24;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 14px;
+    }
+
+    #commentError.d-none {
+        display: none;
+    }
+
+    /* Bootstrap utility classes */
+    .d-none {
+        display: none !important;
+    }
+
+    .d-flex {
+        display: flex;
+    }
+
+    .text-muted {
+        color: #6c757d;
+    }
+
+    .text-center {
+        text-align: center;
+    }
+
+    .py-3 {
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+    }
+
+    .mt-2 {
+        margin-top: 0.5rem;
+    }
+
+    .alert {
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin-bottom: 16px;
+        font-size: 14px;
+    }
+
+    .alert-danger {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+    }
+
+    .btn {
+        border: none;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-family: var(--wm-font-family);
+        font-weight: 600;
+        cursor: pointer;
+        transition: background var(--profile-transition), transform var(--profile-transition);
+    }
+
+    .btn-primary {
+        background: var(--profile-pink);
+        color: #fff;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+        background: var(--profile-pink-light);
+    }
+
+    .btn-secondary {
+        background: #6c757d;
+        color: #fff;
+    }
+
+    .btn-secondary:hover {
+        background: #5a6268;
+    }
+
+    .btn-sm {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+
     @media (max-width: 992px) {
         /* Reduce page padding on tablet */
         .profile-page {
@@ -686,6 +997,12 @@
             flex-direction: row;
             flex-wrap: wrap;
             justify-content: center;
+        }
+
+        /* Tags title takes full width so tags wrap below it on mobile */
+        .profile-tags-title {
+            flex-basis: 100%;
+            text-align: center;
         }
 
         /* Smaller friends title on mobile */
