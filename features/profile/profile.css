@@ -999,6 +999,12 @@
             justify-content: center;
         }
 
+        /* Tags title takes full width so tags wrap below it on mobile */
+        .profile-tags-title {
+            flex-basis: 100%;
+            text-align: center;
+        }
+
         /* Smaller friends title on mobile */
         .profile-friends-title {
             font-size: 16px;

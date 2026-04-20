@@ -306,7 +306,7 @@ function clean_input($data): string
                                         </div>
                                         <div class="friend-card-content d-flex flex-column align-items-start gap-2 flex-grow-1" style="cursor: pointer;">
                                             <p class="profile-name mb-0"><?php echo htmlspecialchars($friend['first_name'] . ' ' . $friend['last_name']); ?></p>
-                                            <a href="/features/profile/view-profile.php?user_id=<?php echo (int)$friend['user_id']; ?>" class="btn-view-profile">View Profile</a>
+                                            <a href="/features/profile/profile.php?user_id=<?php echo (int)$friend['user_id']; ?>" class="btn-view-profile">View Profile</a>
                                         </div>
                                     </div>
                                 <?php endforeach; ?>
