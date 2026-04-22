@@ -19,7 +19,7 @@ declare(strict_types=1);
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item">
-                    <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/auth/register.php') !== false ? 'active' : ''; ?>" href="/features/auth/register.php">Sign-Up</a>
+                    <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/auth/register.php') !== false ? 'active' : ''; ?>" href="/features/auth/register.php">Register</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/auth/login.php') !== false ? 'active' : ''; ?>" href="/features/auth/login.php">Login</a>
