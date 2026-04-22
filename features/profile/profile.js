@@ -1,36 +1,37 @@
 // --- Carousel state ---
 // Initialize photos from DB data (set in profile.php)
-let photos = (typeof userPhotos !== 'undefined' ? userPhotos : []).map(p => ({
-    id: p.photo_id,
-    url: p.photo_url
-}));
+let photos = (typeof userPhotos !== 'undefined' ? userPhotos : []);
 let currentIndex = 0;
 
 function updateCarousel() {
     const img = document.getElementById('carouselImage');
-    const empty = document.getElementById('carouselEmpty');
+    const empty = document.querySelector('.profile-photo-empty');
     const dotsContainer = document.querySelector('.profile-photo-dots');
 
+    if (!img) return;
+    
     if (photos.length === 0) {
         img.style.display = 'none';
-        empty.style.display = '';
-        dotsContainer.innerHTML = '';
+        if (empty) empty.style.display = '';
+        if (dotsContainer) dotsContainer.innerHTML = '';
         return;
     }
 
-    empty.style.display = 'none';
+    if (empty) empty.style.display = 'none';
     img.style.display = '';
 
     img.style.opacity = '0.7';
     setTimeout(() => {
-        img.src = photos[currentIndex].url;
+        img.src = photos[currentIndex].photo_url;
         img.style.opacity = '1';
     }, 100);
 
     // Rebuild dots to match photo count
-    dotsContainer.innerHTML = photos.map((_, i) =>
-        `<span class="profile-photo-dot ${i === currentIndex ? 'active' : ''}" onclick="setPhoto(${i})"></span>`
-    ).join('');
+    if (dotsContainer) {
+        dotsContainer.innerHTML = photos.map((_, i) =>
+            `<span class="profile-photo-dot ${i === currentIndex ? 'active' : ''}" onclick="setPhoto(${i})"></span>`
+        ).join('');
+    }
 }
 
 function nextPhoto() {
@@ -53,12 +54,13 @@ function setPhoto(index) {
 // --- Bio/Location Modal ---
 function openBioModal() {
     const bioText = document.getElementById('profileBio').textContent;
-    const locEl = document.getElementById('profileLocation');
+    const locEl = document.querySelector('.profile-location');
     const locText = locEl.textContent.replace('📍', '').trim();
 
     document.getElementById('editBio').value = bioText;
     document.getElementById('editLocation').value = locText;
     document.getElementById('bioCharCount').textContent = bioText.length;
+    document.getElementById('editGender').value = (typeof userGender !== 'undefined') ? userGender : '';
 
     new bootstrap.Modal(document.getElementById('bioModal')).show();
 }
@@ -67,12 +69,74 @@ document.getElementById('editBio')?.addEventListener('input', function() {
     document.getElementById('bioCharCount').textContent = this.value.length;
 });
 
+// --- Comments Section ---
+document.getElementById('commentText')?.addEventListener('input', function() {
+    document.getElementById('charCount').textContent = this.value.length;
+});
+
+function saveComment() {
+    const commentText = document.getElementById('commentText')?.value.trim();
+    if (!commentText) {
+        alert('Please enter a comment');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('action', 'add_comment');
+    formData.append('comment_text', commentText);
+    formData.append('profile_owner_id', profileUserId);
+
+    fetch('/features/profile/comments-api.php', { method: 'POST', body: formData })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('commentText').value = '';
+                document.getElementById('charCount').textContent = '0';
+                const errorEl = document.getElementById('commentError');
+                if (errorEl) errorEl.classList.add('d-none');
+                // Reload comments
+                loadComments();
+            } else {
+                const errorEl = document.getElementById('commentError');
+                if (errorEl) {
+                    errorEl.textContent = data.error || 'Failed to post comment';
+                    errorEl.classList.remove('d-none');
+                }
+            }
+        })
+        .catch(err => {
+            const errorEl = document.getElementById('commentError');
+            if (errorEl) {
+                errorEl.textContent = 'Error: ' + err.message;
+                errorEl.classList.remove('d-none');
+            }
+        });
+}
+
+function loadComments() {
+    // Fetch fresh comments from the API
+    const pUserId = (typeof profileUserId !== 'undefined') ? profileUserId : null;
+    if (!pUserId) return;
+    
+    fetch('/features/profile/comments-api.php?action=get_comments&profile_owner_id=' + pUserId)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && typeof renderComments === 'function') {
+                const cUserId = (typeof currentUserId !== 'undefined') ? currentUserId : null;
+                renderComments(data.comments, cUserId);
+            }
+        })
+        .catch(err => console.error('Error loading comments:', err));
+}
+
 function saveBio() {
     const newBio = document.getElementById('editBio').value.trim();
+    const newGender = document.getElementById('editGender').value;
 
     const formData = new FormData();
     formData.append('action', 'update_bio');
     formData.append('bio', newBio);
+    formData.append('gender', newGender);
 
     fetch(window.location.pathname, { method: 'POST', body: formData })
         .then(res => res.text().then(text => {
@@ -84,7 +148,7 @@ function saveBio() {
                 document.getElementById('profileBio').textContent = newBio;
                 bootstrap.Modal.getInstance(document.getElementById('bioModal')).hide();
             } else {
-                alert('Failed to save bio: ' + (data.error || 'Unknown error'));
+                alert('Failed to save: ' + (data.error || 'Unknown error'));
             }
         })
         .catch(err => alert('Error: ' + err.message));
@@ -95,12 +159,12 @@ let selectedPicFile = null;
 let currentPrimaryId = (typeof primaryPhotoId !== 'undefined') ? primaryPhotoId : null;
 
 function openPicModal() {
-    const avatar = document.querySelector('.profile-avatar');
     const preview = document.getElementById('picPreview');
     const previewEmpty = document.getElementById('picPreviewEmpty');
 
-    if (avatar.src && avatar.style.display !== 'none') {
-        preview.src = avatar.src;
+    // Check if there's a primary photo
+    if (currentPrimaryId && photos.length > 0) {
+        preview.src = photos[0].photo_url;
         preview.style.display = '';
         previewEmpty.style.display = 'none';
     } else {
@@ -131,7 +195,8 @@ document.getElementById('picFileInput')?.addEventListener('change', function(e) 
 
 function saveProfilePic() {
     if (!selectedPicFile) {
-        bootstrap.Modal.getInstance(document.getElementById('picModal')).hide();
+        const picModal = bootstrap.Modal.getInstance(document.getElementById('picModal'));
+        if (picModal) picModal.hide();
         return;
     }
 
@@ -147,12 +212,13 @@ function saveProfilePic() {
         }))
         .then(data => {
             if (data.success) {
-                const avatar = document.querySelector('.profile-avatar');
-                avatar.src = data.photo_url;
-                avatar.style.display = '';
-                document.getElementById('avatarEmpty').style.display = 'none';
+                // Add to beginning of photos array
+                photos.unshift({ photo_id: data.photo_id, photo_url: data.photo_url });
+                currentIndex = 0;
+                updateCarousel();
                 currentPrimaryId = data.photo_id;
-                bootstrap.Modal.getInstance(document.getElementById('picModal')).hide();
+                const picModal = bootstrap.Modal.getInstance(document.getElementById('picModal'));
+                if (picModal) picModal.hide();
             } else {
                 alert('Upload failed: ' + (data.error || 'Unknown error'));
             }
@@ -174,11 +240,13 @@ function removeProfilePic() {
         }))
         .then(data => {
             if (data.success) {
-                const avatar = document.querySelector('.profile-avatar');
-                avatar.style.display = 'none';
-                document.getElementById('avatarEmpty').style.display = '';
+                // Remove first photo from array
+                photos.shift();
+                currentIndex = 0;
                 currentPrimaryId = null;
-                bootstrap.Modal.getInstance(document.getElementById('picModal')).hide();
+                updateCarousel();
+                const picModal = bootstrap.Modal.getInstance(document.getElementById('picModal'));
+                if (picModal) picModal.hide();
             } else {
                 alert('Remove failed: ' + (data.error || 'Unknown error'));
             }
@@ -196,7 +264,7 @@ function renderPhotosGrid() {
     const grid = document.getElementById('photosGrid');
     grid.innerHTML = photos.map((photo, i) => `
         <div class="profile-photo-thumb">
-            <img src="${photo.url}" alt="Photo ${i + 1}">
+            <img src="${photo.photo_url}" alt="Photo ${i + 1}">
             <button class="profile-photo-delete" onclick="deletePhoto(${i})">&times;</button>
         </div>
     `).join('');
@@ -229,7 +297,7 @@ document.getElementById('photoFileInput')?.addEventListener('change', function(e
         }))
         .then(data => {
             if (data.success) {
-                photos.push({ id: data.photo_id, url: data.photo_url });
+                photos.push({ photo_id: data.photo_id, photo_url: data.photo_url });
                 renderPhotosGrid();
                 updateCarousel();
             } else {
@@ -246,7 +314,7 @@ function deletePhoto(index) {
 
     const formData = new FormData();
     formData.append('action', 'delete_photo');
-    formData.append('photo_id', photo.id);
+    formData.append('photo_id', photo.photo_id);
 
     fetch(window.location.pathname, { method: 'POST', body: formData })
         .then(res => res.text().then(text => {
@@ -333,32 +401,27 @@ function saveTags() {
 
 function updateProfilePills() {
     // Update About Me pills
-    const aboutMe = document.getElementById('aboutMePills');
-    const aboutBtn = aboutMe.querySelector('.profile-add-tag');
-    const title = aboutMe.querySelector('.profile-tags-title');
-    aboutMe.innerHTML = '';
-    aboutMe.appendChild(title);
+    const aboutMeContainer = document.getElementById('aboutMePills');
+    const addTagBtn = aboutMeContainer.querySelector('.profile-add-tag');
+    const titleEl = aboutMeContainer.querySelector('.profile-tags-title');
+    
+    // Clear and rebuild
+    aboutMeContainer.innerHTML = '';
+    aboutMeContainer.appendChild(titleEl);
+    
     allTags.filter(t => selectedAboutMe.includes(parseInt(t.tag_id)))
         .forEach((tag, i) => {
             const pill = document.createElement('span');
             pill.className = 'profile-pill profile-pill--' + (i % 2 === 0 ? 'pink' : 'orange');
             pill.textContent = tag.tag_name;
-            aboutMe.appendChild(pill);
+            aboutMeContainer.appendChild(pill);
         });
-    aboutMe.appendChild(aboutBtn);
+    
+    if (typeof isOwnProfile !== 'undefined' && isOwnProfile) {
+        aboutMeContainer.appendChild(addTagBtn);
+    }
 
-    // Update Looking For pills
-    const lookingFor = document.getElementById('lookingForPills');
-    const lookingBtn = lookingFor.querySelector('.profile-looking-add');
-    lookingFor.innerHTML = '';
-    allTags.filter(t => selectedLookingFor.includes(parseInt(t.tag_id)))
-        .forEach(tag => {
-            const pill = document.createElement('span');
-            pill.className = 'profile-looking-pill';
-            pill.textContent = tag.tag_name;
-            lookingFor.appendChild(pill);
-        });
-    lookingFor.appendChild(lookingBtn);
+    // Looking For pills are read-only on the profile page — edited in Settings.
 }
 
 // --- Map Location Picker ---
@@ -464,8 +527,10 @@ function confirmLocation() {
             document.getElementById('editLng').value = selectedLng;
 
             // Update the profile page location display
-            document.getElementById('profileLocation').innerHTML =
-                '<span class="profile-location-icon">📍</span> ' + data.general_location;
+            const locEl = document.querySelector('.profile-location');
+            if (locEl) {
+                locEl.innerHTML = '<span class="profile-location-icon">📍</span> ' + data.general_location;
+            }
 
             // Close map modal, reopen bio modal
             const mapModalEl = document.getElementById('mapModal');

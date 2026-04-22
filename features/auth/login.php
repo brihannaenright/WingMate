@@ -62,11 +62,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $_SESSION['user_id'] = $user['user_id'];
                         $_SESSION['user_type'] = $user['user_type'];
 
-                        // Redirect admins to admin dashboard, standard users to friends page
+                        // Redirect admins to admin dashboard, standard users to profile page
                         if ($user['user_type'] === 'administrator') {
                             header('Location: /features/admin/admin.php');
                         } else {
-                            header('Location: /features/friends/friends.php');
+                            header('Location: /features/profile/profile.php');
                         }
                         exit;
                     }
@@ -126,6 +126,7 @@ function clean_input($data) {
                             <img src="/assets/images/lock-icon.svg" alt="" class="input-icon">
                             <input type="password" name="password" placeholder="Password" required>
                         </div>
+                    <a href="/features/auth/forgot_password.php" class="forgot-link">Forgot password?</a>
                     <div class="buttons">
                         <button type="button" onclick="window.location.href='/features/auth/register.php'">Register</button>
                         <button class="button-secondary" type="submit">Login</button>

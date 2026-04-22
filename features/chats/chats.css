@@ -83,6 +83,7 @@
     font-size: 0.95rem;
     max-height: 120px;
     transition: border-color 0.2s ease;
+    resize: none;
 }
 
 .message-input:focus {
@@ -128,6 +129,11 @@
     color: #999;
     margin-top: 0.25rem;
     padding: 0 0.5rem;
+    transition: color 0.3s ease;
+}
+
+.message-time.message-read {
+    color: #F2AE66;
 }
 
 .message-report-btn {

@@ -16,7 +16,7 @@
 .swipe-page {
     background: var(--swipe-bg);
     min-height: 100vh;
-    padding: 30px 40px 120px;
+    padding: 30px 40px 60px;
 }
 
 /* Main 2-column grid layout for all swipe cards */
@@ -487,18 +487,11 @@
 
 /* Container for Skip and Match buttons at the bottom */
 .swipe-actions {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    grid-column: 1 / -1;
     display: flex;
     justify-content: center;
     gap: 24px;
-    padding: 16px 24px;
-    background: rgba(248, 248, 248, 0.95);
-    backdrop-filter: blur(8px);
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
-    z-index: 50;
+    padding: 12px 0 0;
 }
 
 /* Shared base style for Skip and Match buttons */
@@ -690,71 +683,4 @@
 /* Staggered animation delay - action buttons */
 .swipe-actions {
     animation-delay: 0.32s;
-}
-
-/* Candidate gender line in the banner */
-.swipe-gender {
-    font-family: var(--wm-font-family);
-    font-size: 13px;
-    font-weight: 600;
-    color: #555;
-    margin-bottom: 10px;
-}
-
-/* Relationship type - standout orange pill on the pink Looking For card */
-.swipe-relationship-type {
-    display: inline-block;
-    padding: 10px 24px;
-    margin-bottom: 14px;
-    border-radius: var(--swipe-pill-radius);
-    background: var(--swipe-orange);
-    color: #FFFFFF;
-    font-family: var(--wm-font-family);
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-    box-shadow: 0 3px 10px rgba(242, 174, 102, 0.3);
-}
-
-/* Incomplete-profile panel shown when viewer is missing required data */
-.swipe-incomplete {
-    max-width: 560px;
-    margin: 60px auto;
-    padding: 40px;
-    background: var(--swipe-card-bg);
-    border-radius: var(--swipe-card-radius);
-    box-shadow: var(--swipe-card-shadow);
-    text-align: center;
-}
-
-.swipe-incomplete h2 {
-    margin: 0 0 20px;
-    color: var(--swipe-pink);
-}
-
-.swipe-incomplete ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    text-align: left;
-    display: inline-block;
-}
-
-.swipe-incomplete li {
-    padding: 10px 0;
-    border-bottom: 1px solid #eee;
-}
-
-.swipe-incomplete li:last-child {
-    border-bottom: none;
-}
-
-.swipe-incomplete a {
-    color: var(--swipe-pink);
-    font-weight: 600;
-    text-decoration: none;
-}
-
-.swipe-incomplete a:hover {
-    text-decoration: underline;
 }

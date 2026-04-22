@@ -304,7 +304,10 @@ function clean_input($data): string
                                                     class="profile-image">
                                             <?php endif; ?>
                                         </div>
-                                        <p class="profile-name"><?php echo htmlspecialchars($friend['first_name'] . ' ' . $friend['last_name']); ?></p>
+                                        <div class="friend-card-content d-flex flex-column align-items-start gap-2 flex-grow-1" style="cursor: pointer;">
+                                            <p class="profile-name mb-0"><?php echo htmlspecialchars($friend['first_name'] . ' ' . $friend['last_name']); ?></p>
+                                            <a href="/features/profile/profile.php?user_id=<?php echo (int)$friend['user_id']; ?>" class="btn-view-profile">View Profile</a>
+                                        </div>
                                     </div>
                                 <?php endforeach; ?>
                             <?php else: ?>
@@ -351,7 +354,9 @@ function clean_input($data): string
                                                 </div>
                                             <?php endif; ?>
                                         </div>
-                                        <p class="profile-name"><?php echo htmlspecialchars($group['group_name']); ?></p>
+                                        <div class="friend-card-content d-flex flex-column align-items-start gap-2 flex-grow-1" style="cursor: pointer;">
+                                            <p class="profile-name mb-0"><?php echo htmlspecialchars($group['group_name']); ?></p>
+                                        </div>
                                     </div>
                                 <?php endforeach; ?>
                             <?php else: ?>
@@ -504,38 +509,48 @@ document.addEventListener('DOMContentLoaded', function() {
     const chatCards = document.querySelectorAll('.chat-card');
 
     chatCards.forEach(card => {
-        card.addEventListener('click', function() {
-            // Check if it's a friend card or group card
-            const profileId = this.getAttribute('data-user-id');
-            const groupId = this.getAttribute('data-group-id');
-            
-            if (profileId) {
-                // Friend card
-                const profileName = this.getAttribute('data-friend-name');
-                const profilePicture = this.querySelector('img')?.src || null;
-
-                // Remove active state from all cards
-                chatCards.forEach(c => c.classList.remove('active'));
+        // Make the friend/group content area clickable for loading chat
+        const contentArea = card.querySelector('.friend-card-content, .d-flex.flex-row.align-items-center');
+        if (contentArea) {
+            contentArea.addEventListener('click', function(e) {
+                e.stopPropagation();
+                // Don't trigger if clicking on a link
+                if (e.target.tagName === 'A' || e.target.closest('a')) {
+                    return;
+                }
                 
-                // Add active state to clicked card
-                this.classList.add('active');
-
-                // Load chat using ChatManager
-                ChatManager.loadChat(profileId, profileName, profilePicture);
-            } else if (groupId) {
-                // Group card
-                const groupName = this.getAttribute('data-group-name');
-
-                // Remove active state from all cards
-                chatCards.forEach(c => c.classList.remove('active'));
+                // Check if it's a friend card or group card
+                const profileId = card.getAttribute('data-user-id');
+                const groupId = card.getAttribute('data-group-id');
                 
-                // Add active state to clicked card
-                this.classList.add('active');
+                if (profileId) {
+                    // Friend card
+                    const profileName = card.getAttribute('data-friend-name');
+                    const profilePicture = card.querySelector('img')?.src || null;
 
-                // Load group chat
-                ChatManager.loadGroupChat(groupId, groupName);
-            }
-        });
+                    // Remove active state from all cards
+                    chatCards.forEach(c => c.classList.remove('active'));
+                    
+                    // Add active state to clicked card
+                    card.classList.add('active');
+
+                    // Load chat using ChatManager
+                    ChatManager.loadChat(profileId, profileName, profilePicture);
+                } else if (groupId) {
+                    // Group card
+                    const groupName = card.getAttribute('data-group-name');
+
+                    // Remove active state from all cards
+                    chatCards.forEach(c => c.classList.remove('active'));
+                    
+                    // Add active state to clicked card
+                    card.classList.add('active');
+
+                    // Load group chat
+                    ChatManager.loadGroupChat(groupId, groupName);
+                }
+            });
+        }
     });
 
     // Create Group Form Handler
@@ -545,6 +560,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const groupName = document.getElementById('groupName').value.trim();
         const checkedFriends = Array.from(document.querySelectorAll('.friend-checkbox:checked')).map(cb => parseInt(cb.value));
         const createGroupError = document.getElementById('createGroupError');
+        const submitButton = document.querySelector('button[form="createGroupForm"]');
+
+        // Prevent double submissions
+        if (submitButton.disabled) return;
 
         // Validation
         let hasErrors = false;
@@ -577,6 +596,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (hasErrors) return;
 
+        // Disable submit button during request
+        submitButton.disabled = true;
+        submitButton.style.opacity = '0.6';
+        submitButton.style.cursor = 'not-allowed';
+
         // Build FormData for submission
         const formData = new FormData();
         formData.append('csrf_token', csrfToken);
@@ -601,12 +625,20 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 createGroupError.textContent = data.error || 'Failed to create group';
                 createGroupError.classList.remove('d-none');
+                // Re-enable button on error
+                submitButton.disabled = false;
+                submitButton.style.opacity = '1';
+                submitButton.style.cursor = 'pointer';
             }
         })
         .catch(err => {
             console.error(err);
             createGroupError.textContent = 'Error creating group. Please try again.';
             createGroupError.classList.remove('d-none');
+            // Re-enable button on error
+            submitButton.disabled = false;
+            submitButton.style.opacity = '1';
+            submitButton.style.cursor = 'pointer';
         });
     });
 
