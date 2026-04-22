@@ -1,0 +1,303 @@
+/* Centered settings page */
+.settings-page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
+
+.settings-content {
+    padding: 0;
+}
+
+.settings-section-title {
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.settings-section-subtitle {
+    font-size: 14px;
+    color: #808080;
+    font-weight: 300;
+}
+
+.settings-success {
+    color: #2E7D32;
+    font-size: 14px;
+}
+
+/* Preferences grid layout */
+.preferences-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .preferences-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.preferences-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* Individual preference fields — only affect the top-level field heading label */
+.preference-field > label {
+    font-size: 14px;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.preference-select {
+    width: 100%;
+    height: 45px;
+    border-radius: var(--wm-button-radius);
+    border: 1px solid #808080;
+    padding: 0 14px;
+    font-family: var(--wm-font-family);
+    font-size: 14px;
+    background-color: #FFFFFF;
+}
+
+/* Gender single-select checklist */
+.gender-checklist {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.gender-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.gender-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.gender-checkbox {
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid #808080;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #FFFFFF;
+    flex-shrink: 0;
+    transition: border-color 0.15s, background-color 0.15s;
+}
+
+.gender-option input[type="radio"]:checked + .gender-checkbox {
+    background-color: var(--wm-button-primary);
+    border-color: var(--wm-button-primary);
+}
+
+.gender-option input[type="radio"]:checked + .gender-checkbox::after {
+    content: '';
+    width: 5px;
+    height: 10px;
+    border: solid #FFFFFF;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg) translate(-1px, -1px);
+}
+
+.gender-option:hover .gender-checkbox {
+    border-color: var(--wm-button-primary);
+}
+
+.gender-label {
+    color: #333;
+}
+
+/* Custom dual-handle age slider (pure div + JS, no <input type=range>) */
+.age-slider {
+    position: relative;
+    height: 30px;
+    user-select: none;
+    touch-action: none;
+}
+
+.age-slider-track {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: #E0E0E0;
+    border-radius: 2px;
+    transform: translateY(-50%);
+}
+
+.age-slider-fill {
+    position: absolute;
+    top: 50%;
+    height: 4px;
+    background: var(--wm-button-primary);
+    border-radius: 2px;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.age-slider-thumb {
+    position: absolute;
+    top: 50%;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--wm-button-primary);
+    border: 2px solid #FFFFFF;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transform: translate(-50%, -50%);
+    cursor: grab;
+    outline: none;
+}
+
+.age-slider-thumb:active {
+    cursor: grabbing;
+}
+
+.age-slider-thumb:focus-visible {
+    box-shadow: 0 0 0 3px rgba(195, 14, 89, 0.3);
+}
+
+input[type="range"] {
+    width: 100%;
+    accent-color: var(--wm-button-primary);
+}
+
+.range-label {
+    font-size: 12px;
+    color: #808080;
+    margin-top: 4px;
+    display: block;
+}
+
+/* Looking For pills (same visual style as profile page) */
+.looking-for-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid #808080;
+    border-radius: var(--wm-button-radius);
+    min-height: 60px;
+    align-items: center;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.looking-for-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    background-color: var(--wm-button-primary);
+    color: #FFFFFF;
+    max-width: 100%;
+    word-break: break-word;
+}
+
+.looking-for-add {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1.5px solid var(--wm-button-primary);
+    background: transparent;
+    color: var(--wm-button-primary);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+}
+
+.looking-for-add:hover {
+    background: var(--wm-button-primary);
+    color: #FFFFFF;
+}
+
+/* Save button */
+.settings-save-btn {
+    margin-top: 1.5rem;
+}
+
+/* Tag picker modal */
+.settings-modal-content {
+    border-radius: 16px;
+}
+
+.settings-modal-header {
+    border-bottom: 1px solid #E0E0E0;
+}
+
+.settings-modal-footer {
+    border-top: 1px solid #E0E0E0;
+}
+
+.settings-tag-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.settings-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    user-select: none;
+}
+
+.settings-pill--selected {
+    background-color: var(--wm-button-primary);
+    color: #FFFFFF;
+    border: 1.5px solid var(--wm-button-primary);
+}
+
+.settings-pill--unselected {
+    background-color: transparent;
+    color: #333;
+    border: 1.5px solid #808080;
+}
+
+.settings-pill--unselected:hover {
+    border-color: var(--wm-button-primary);
+    color: var(--wm-button-primary);
+}
+
+.settings-btn-cancel {
+    background: transparent;
+    border: 1px solid #808080;
+    color: #333;
+}
+
+.settings-btn-save {
+    background-color: var(--wm-button-primary);
+    color: #FFFFFF;
+    border: none;
+}
+
+.settings-btn-save:hover {
+    opacity: 0.9;
+    color: #FFFFFF;
+}
