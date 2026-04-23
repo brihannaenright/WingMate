@@ -30,6 +30,65 @@ if (!in_array($swipeType, ['like', 'dislike'], true)) {
     $stmt->execute();
     $stmt->close();
 
+    if ($swipeType === 'like') {
+        $stmt = $conn->prepare("SELECT 1 FROM User_Swipe WHERE liker_id = ? AND liked_id = ? AND swipe_type = 'like' LIMIT 1");
+        $stmt->bind_param('ii', $likedId, $current_user_id);
+        $stmt->execute();
+        $isMutual = $stmt->get_result()->num_rows > 0;
+        $stmt->close();
+
+        if ($isMutual) {
+            $user1 = min((int)$current_user_id, (int)$likedId);
+            $user2 = max((int)$current_user_id, (int)$likedId);
+
+            $stmt = $conn->prepare("SELECT match_id FROM Matches WHERE user1_id = ? AND user2_id = ?");
+            $stmt->bind_param('ii', $user1, $user2);
+            $stmt->execute();
+            $existingMatch = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+
+            if ($existingMatch) {
+                $matchId = (int)$existingMatch['match_id'];
+            } else {
+                $stmt = $conn->prepare("INSERT INTO Matches (user1_id, user2_id, status, matched_at) VALUES (?, ?, 'pending', NOW())");
+                $stmt->bind_param('ii', $user1, $user2);
+                $stmt->execute();
+                $matchId = $stmt->insert_id;
+                $stmt->close();
+            }
+
+            $stmt = $conn->prepare("INSERT INTO Match_Requests (match_id, match_owner_id, matched_user_id, status, created_at) VALUES (?, ?, ?, 'pending', NOW())");
+            $stmt->bind_param('iii', $matchId, $current_user_id, $likedId);
+            $stmt->execute();
+            $request1Id = $stmt->insert_id;
+            $stmt->close();
+
+            $stmt = $conn->prepare("INSERT INTO Match_Requests (match_id, match_owner_id, matched_user_id, status, created_at) VALUES (?, ?, ?, 'pending', NOW())");
+            $stmt->bind_param('iii', $matchId, $likedId, $current_user_id);
+            $stmt->execute();
+            $request2Id = $stmt->insert_id;
+            $stmt->close();
+
+            $stmt = $conn->prepare(
+                "INSERT INTO Notifications (recipient_id, notification_type, reference_type, reference_id, created_at)
+                 SELECT CASE WHEN user_id = ? THEN friend_id ELSE user_id END, 'vote_request', 'match_request', ?, NOW()
+                 FROM Friendship WHERE status='accepted' AND (user_id = ? OR friend_id = ?)"
+            );
+            $stmt->bind_param('iiii', $current_user_id, $request1Id, $current_user_id, $current_user_id);
+            $stmt->execute();
+            $stmt->close();
+
+            $stmt = $conn->prepare(
+                "INSERT INTO Notifications (recipient_id, notification_type, reference_type, reference_id, created_at)
+                 SELECT CASE WHEN user_id = ? THEN friend_id ELSE user_id END, 'vote_request', 'match_request', ?, NOW()
+                 FROM Friendship WHERE status='accepted' AND (user_id = ? OR friend_id = ?)"
+            );
+            $stmt->bind_param('iiii', $likedId, $request2Id, $likedId, $likedId);
+            $stmt->execute();
+            $stmt->close();
+        }
+    }
+
     echo json_encode(['success' => true]);
     exit;
 }
@@ -77,6 +136,15 @@ if (!$prefs) {
 }
 if (empty($viewerLookingForTagIds)) {
     $missing[] = ['text' => 'Select at least one Looking For attribute', 'href' => '/features/settings/settings.php', 'label' => 'Go to Settings'];
+}
+
+$stmt = $conn->prepare("SELECT COUNT(*) AS c FROM Friendship WHERE status='accepted' AND (user_id = ? OR friend_id = ?)");
+$stmt->bind_param('ii', $current_user_id, $current_user_id);
+$stmt->execute();
+$friendCount = (int)$stmt->get_result()->fetch_assoc()['c'];
+$stmt->close();
+if ($friendCount === 0) {
+    $missing[] = ['text' => 'Add at least one friend before swiping', 'href' => '/features/friends/friends.php', 'label' => 'Go to Friends'];
 }
 
 $candidatesList = [];
