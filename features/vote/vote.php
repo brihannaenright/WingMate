@@ -46,7 +46,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $action = $_POST['action'] ?? '';
 
-    // Cast a vote (vote_type: 1 = approve, 0 = dislike)
     if ($action === 'cast_vote' && !empty($_POST['request_id'])) {
         $request_id = (int) $_POST['request_id'];
         $vote_type  = ($_POST['vote_type'] ?? '') === 'approve' ? 1 : 0;
@@ -57,17 +56,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
             $stmt->close();
 
-            // Recalculate Decision totals
-            $stmt = $conn->prepare("SELECT COUNT(*) AS total, SUM(vote_type) AS approved FROM Friend_Votes WHERE request_id = ?");
+            $stmt = $conn->prepare(
+                "SELECT mr.match_owner_id, mr.matched_user_id,
+                        COUNT(fv.friend_voter_id) AS total_votes,
+                        COALESCE(SUM(fv.vote_type), 0) AS approved
+                 FROM Match_Requests mr
+                 LEFT JOIN Friend_Votes fv ON fv.request_id = mr.request_id
+                 WHERE mr.request_id = ?
+                 GROUP BY mr.request_id"
+            );
             $stmt->bind_param('i', $request_id);
             $stmt->execute();
-            $d        = $stmt->get_result()->fetch_assoc();
+            $r = $stmt->get_result()->fetch_assoc();
             $stmt->close();
 
-            $total    = (int) $d['total'];
-            $approved = (int) $d['approved'];
-            $pct      = $total > 0 ? (int) round(($approved / $total) * 100) : 0;
-            $is_match = $pct >= 50 ? 1 : 0;
+            $ownerId   = (int)$r['match_owner_id'];
+            $matchedId = (int)$r['matched_user_id'];
+            $total     = (int)$r['total_votes'];
+            $approved  = (int)$r['approved'];
+
+            $stmt = $conn->prepare("SELECT COUNT(*) AS c FROM Friendship WHERE status='accepted' AND (user_id = ? OR friend_id = ?)");
+            $stmt->bind_param('ii', $ownerId, $ownerId);
+            $stmt->execute();
+            $friendCount = (int)$stmt->get_result()->fetch_assoc()['c'];
+            $stmt->close();
+
+            $pct      = $friendCount > 0 ? (int) round(($approved / $friendCount) * 100) : 0;
+            $is_match = $pct >= 40 ? 1 : 0;
 
             $stmt = $conn->prepare("INSERT INTO Decision (match_request_id, total_votes, approval_votes, approval_percentage, is_match)
                 VALUES (?, ?, ?, ?, ?)
@@ -76,23 +91,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
             $stmt->close();
 
+            if ($is_match === 1) {
+                $stmt = $conn->prepare(
+                    "SELECT mr.request_id, d.is_match
+                     FROM Match_Requests mr
+                     LEFT JOIN Decision d ON d.match_request_id = mr.request_id
+                     WHERE mr.match_owner_id = ? AND mr.matched_user_id = ?"
+                );
+                $stmt->bind_param('ii', $matchedId, $ownerId);
+                $stmt->execute();
+                $reciprocal = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+
+                if ($reciprocal && (int)$reciprocal['is_match'] === 1) {
+                    $user1 = min($ownerId, $matchedId);
+                    $user2 = max($ownerId, $matchedId);
+
+                    $stmt = $conn->prepare("SELECT match_id, status FROM Matches WHERE user1_id = ? AND user2_id = ?");
+                    $stmt->bind_param('ii', $user1, $user2);
+                    $stmt->execute();
+                    $existing = $stmt->get_result()->fetch_assoc();
+                    $stmt->close();
+
+                    if ($existing && $existing['status'] !== 'active') {
+                        $matchId = (int)$existing['match_id'];
+
+                        $stmt = $conn->prepare("UPDATE Matches SET status = 'active', matched_at = NOW() WHERE match_id = ?");
+                        $stmt->bind_param('i', $matchId);
+                        $stmt->execute();
+                        $stmt->close();
+
+                        $stmt = $conn->prepare("UPDATE Match_Requests SET status = 'approved', closed_at = NOW() WHERE request_id IN (?, ?)");
+                        $stmt->bind_param('ii', $request_id, $reciprocal['request_id']);
+                        $stmt->execute();
+                        $stmt->close();
+
+                        $stmt = $conn->prepare("INSERT INTO Notifications (recipient_id, notification_type, reference_type, reference_id, created_at) VALUES (?, 'match_approved', 'match', ?, NOW())");
+                        $stmt->bind_param('ii', $user1, $matchId);
+                        $stmt->execute();
+                        $stmt->bind_param('ii', $user2, $matchId);
+                        $stmt->execute();
+                        $stmt->close();
+                    }
+                }
+            }
+
             $_SESSION['vote_success'] = $vote_type === 1 ? 'You approved this match!' : 'You disliked this match.';
         } catch (Exception $e) {
             $_SESSION['vote_error'] = 'An error occurred while casting your vote. Please try again.';
-        }
-    }
-
-    // Skip match — mark as approved directly (Premium)
-    if ($action === 'skip_match' && !empty($_POST['request_id'])) {
-        $request_id = (int) $_POST['request_id'];
-        try {
-            $stmt = $conn->prepare("UPDATE Match_Requests SET status = 'approved', closed_at = NOW() WHERE request_id = ? AND match_owner_id = ?");
-            $stmt->bind_param('ii', $request_id, $current_user_id);
-            $stmt->execute();
-            $stmt->close();
-            $_SESSION['vote_success'] = 'Match approved directly with Premium!';
-        } catch (Exception $e) {
-            $_SESSION['vote_error'] = 'An error occurred. Please try again.';
         }
     }
 
@@ -207,17 +253,10 @@ try {
                             <div class="vote-progress mt-1 mb-1">
                                 <div class="vote-progress__fill" style="width:<?php echo $pct; ?>%"></div>
                             </div>
-                            <small class="text-muted d-block"><?php echo $pct; ?>% approve &middot; <?php echo 100 - $pct; ?>% dislike</small>
+                            <small class="text-muted d-block"><?php echo $pct; ?>% approval &middot; need 40% to match</small>
                         <?php else: ?>
                             <small class="text-muted d-block mt-1">Waiting on your friends!</small>
                         <?php endif; ?>
-
-                        <form method="POST" class="mt-2" onsubmit="animateOut(<?php echo (int) $v['request_id']; ?>)">
-                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
-                            <input type="hidden" name="action" value="skip_match">
-                            <input type="hidden" name="request_id" value="<?php echo (int) $v['request_id']; ?>">
-                            <button type="submit" class="button-secondary w-100">⚡ Skip votes and match anyway with Premium!</button>
-                        </form>
                     </div>
                     <?php endforeach; ?>
 
@@ -280,12 +319,5 @@ try {
 
     </div>
 </div>
-
-<script>
-function animateOut(id) {
-    const card = document.getElementById('match-' + id);
-    if (card) { card.style.opacity = '0'; card.style.transform = 'translateX(30px)'; }
-}
-</script>
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>
