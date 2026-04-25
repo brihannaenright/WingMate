@@ -436,8 +436,7 @@ if (!$locationMissing && !$friendsMissing && !$prefsIncomplete) {
     </details>
 
     <?php if (!$locationMissing && !$friendsMissing && !$prefsIncomplete): ?>
-        <?php if (!empty($candidatesList)): ?>
-        <div class="swipe-container">
+        <div class="swipe-container"<?php echo empty($candidatesList) ? ' style="display:none;"' : ''; ?>>
 
             <!-- 1. Banner (Top Left) -->
             <div class="swipe-banner">
@@ -490,12 +489,10 @@ if (!$locationMissing && !$friendsMissing && !$prefsIncomplete) {
             </div>
 
         </div>
-        <?php else: ?>
-            <div class="swipe-empty" style="text-align:center;padding:80px 20px;">
-                <h2>No more matches</h2>
-                <p>Adjust the filters above to widen your search.</p>
-            </div>
-        <?php endif; ?>
+        <div class="swipe-empty" style="text-align:center;padding:80px 20px;<?php echo !empty($candidatesList) ? 'display:none;' : ''; ?>">
+            <h2>No more matches</h2>
+            <p>Adjust the filters above to widen your search.</p>
+        </div>
     <?php elseif ($prefsIncomplete && !$locationMissing && !$friendsMissing): ?>
         <div class="alert-wingmate">
             Fill out your match filters above to start swiping.
@@ -681,7 +678,7 @@ function updateLookingForPills() {
 }
 </script>
 
-<?php if (!empty($candidatesList)): ?>
+<?php if (!$locationMissing && !$friendsMissing && !$prefsIncomplete): ?>
 <script>
     const swipeCandidates = <?php echo json_encode($candidatesList); ?>;
 </script>
