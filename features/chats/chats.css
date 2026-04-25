@@ -99,10 +99,12 @@
 
 .message.sent {
     margin-left: auto;
+    align-items: flex-end;
 }
 
 .message.received {
     margin-right: auto;
+    align-items: flex-start;
 }
 
 .message.sent .message-content {

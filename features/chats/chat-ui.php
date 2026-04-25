@@ -482,6 +482,9 @@ const ChatManager = {
                 return;
             }
 
+            // Only auto-scroll if the user was already near the bottom (within 50px)
+            const wasAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 50;
+
             messagesContainer.innerHTML = '';
 
             if (data.messages.length === 0) {
@@ -554,8 +557,10 @@ const ChatManager = {
                 });
             });
 
-            // Scroll to bottom to show newest messages
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            // Scroll to bottom only if user was already at the bottom
+            if (wasAtBottom) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
         })
         .catch(error => console.error('Error loading messages:', error));
     },
@@ -566,24 +571,7 @@ const ChatManager = {
         if (!this.currentChatId || this.messageInput.value.trim() === '') return;
 
         const content = this.messageInput.value.trim();
-        
-        // Clone and replace textarea to clear browser form history
-        const newTextarea = this.messageInput.cloneNode(false);
-        newTextarea.id = 'messageInput';
-        newTextarea.className = 'message-input';
-        newTextarea.setAttribute('placeholder', 'Type a message...');
-        newTextarea.setAttribute('rows', '1');
-        newTextarea.setAttribute('autocomplete', 'off');
-        this.messageInput.parentNode.replaceChild(newTextarea, this.messageInput);
-        this.messageInput = newTextarea;
-        
-        // Reattach event listeners to new textarea
-        this.messageInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                this.handleSendMessage(e);
-            }
-        });
+        this.messageInput.value = '';
 
         const formData = new FormData();
         formData.append('action', 'send_message');
@@ -600,13 +588,10 @@ const ChatManager = {
                 this.loadMessages();
             } else {
                 showToast('Error: ' + (data.error || 'Failed to send message'), 'error');
-                // Restore message only on error
-                this.messageInput.value = content;
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            this.messageInput.value = content; // Restore message only on error
         });
     },
 

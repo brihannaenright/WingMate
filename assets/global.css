@@ -16,12 +16,15 @@
     --wm-button-height: 45px;
     --wm-error-color: #C30E59;
     --wm-success-color: #F2AE66;
+    --transition: 0.35s ease;
+    --transition-subtle: 0.4s ease-in-out;
 }
 
 /** * Global border-box settings.
  */
 html {
     box-sizing: border-box;
+    height: 100%;
 }
 
 *, *::before, *::after {
@@ -31,6 +34,7 @@ html {
 /* Global styles for body, buttons, and text. */
 body{
     margin: 0;
+    min-height: 100vh;
     background-color: var(--wm-page-bg);
     font-family: var(--wm-font-family);
 }
@@ -57,6 +61,28 @@ button,
 .button-secondary{
     border-color: var(--wm-button-secondary-border);
     background: var(--wm-button-secondary);
+}
+
+.entry-page {
+    min-height: 100vh;
+
+    .entry-container{
+    background: #C30E59;
+    }
+
+    .entry-description,
+    .entry-title{
+        color: #FFF;
+        font-family: var(--wm-font-family);
+    }
+
+    .entry-description{
+        font-size: 18px;
+        font-style: normal;
+        font-weight: 400;
+        line-height: 28px;
+        letter-spacing: 0.1px;
+    }
 }
 
 p{
@@ -210,4 +236,15 @@ body.page-loading {
 
 .alert-wingmate strong {
     font-weight: 600;
+}
+
+/* Floating button */
+.floating-button {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: opacity var(--transition), transform var(--transition), box-shadow var(--transition);
+}
+
+.floating-button:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
 }
