@@ -2,7 +2,23 @@
 declare(strict_types=1);
 ?>
 
-<?php include __DIR__ . '/includes/auth-header.php';; ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WingMate</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+
+    <!-- Global CSS -->
+    <link rel="stylesheet" href="/assets/global.css">
+</head>
+
+<body>
+
 <style>
     .intro-section {
         background: #C30E59;
@@ -147,25 +163,25 @@ declare(strict_types=1);
 <div class="entry-page d-flex flex-column">
     <nav class="navbar navbar-expand-lg navbar-light wingmate-navbar sticky-top">
         <div class="container-fluid">
-            <!-- Logo on the left -->
             <div class="navbar-brand">
-                <img src="../../assets/images/wingmate-navbar.png" alt="WingMate" class="navbar-logo" style="height: 50px; width: auto;">
+                <img src="/assets/images/wingmate-navbar.png" alt="WingMate" class="navbar-logo" style="height: 50px; width: auto;">
             </div>
-        </div>
 
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-            <span class="navbar-toggler-icon"></span>
-        </button>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                    aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
 
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ms-auto">
-                <li class="nav-item">
-                    <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/auth/register.php') !== false ? 'active' : ''; ?>" href="/features/auth/register.php">Register</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/auth/login.php') !== false ? 'active' : ''; ?>" href="/features/auth/login.php">Login</a>
-                </li>
-            </ul>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/auth/register.php') !== false ? 'active' : ''; ?>" href="/features/auth/register.php">Register</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/auth/login.php') !== false ? 'active' : ''; ?>" href="/features/auth/login.php">Login</a>
+                    </li>
+                </ul>
+            </div>
         </div>
     </nav>
 
@@ -351,12 +367,21 @@ declare(strict_types=1);
     </section>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
+        crossorigin="anonymous"></script>
+
 <script>
-    // FAQ Toggle Functionality
-    document.querySelectorAll('.faq-question').forEach(question => {
-        question.addEventListener('click', function() {
-            const faqItem = this.closest('.faq-item');
-            faqItem.classList.toggle('active');
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // FAQ Toggle Functionality
+        document.querySelectorAll('.faq-question').forEach(question => {
+            question.addEventListener('click', function() {
+                const faqItem = this.closest('.faq-item');
+                faqItem.classList.toggle('active');
+            });
         });
     });
 </script>
+</body>
+</html>
