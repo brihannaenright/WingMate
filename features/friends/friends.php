@@ -9,7 +9,8 @@
 -->
 
 <?php
-include __DIR__ . '/../../includes/session.php';
+require_once __DIR__ . '/../../includes/session.php';
+require_once __DIR__ . '/../../includes/utils.php';
 require_once __DIR__ . '/../../config/config.php';
 
 wingmate_start_secure_session();
@@ -253,13 +254,6 @@ try {
     $groups = [];
 }
 
-function clean_input($data): string
-{
-    $data = trim($data);
-    $data = stripslashes($data);
-    $data = htmlspecialchars($data, ENT_QUOTES, 'UTF-8');
-    return (string) $data;
-}
 ?>
 <link rel="stylesheet" href="./chats-sidebar.css">
 	<div class="container-fluid">
@@ -304,7 +298,7 @@ function clean_input($data): string
                                                     class="profile-image">
                                             <?php endif; ?>
                                         </div>
-                                        <div class="friend-card-content d-flex flex-column align-items-start gap-2 flex-grow-1" style="cursor: pointer;">
+                                        <div class="friend-card-content d-flex flex-column align-items-start gap-2 flex-grow-1 cursor-pointer">
                                             <p class="profile-name mb-0"><?php echo htmlspecialchars($friend['first_name'] . ' ' . $friend['last_name']); ?></p>
                                             <a href="/features/profile/profile.php?user_id=<?php echo (int)$friend['user_id']; ?>" class="btn-view-profile">View Profile</a>
                                         </div>
@@ -354,7 +348,7 @@ function clean_input($data): string
                                                 </div>
                                             <?php endif; ?>
                                         </div>
-                                        <div class="friend-card-content d-flex flex-column align-items-start gap-2 flex-grow-1" style="cursor: pointer;">
+                                        <div class="friend-card-content d-flex flex-column align-items-start gap-2 flex-grow-1 cursor-pointer">
                                             <p class="profile-name mb-0"><?php echo htmlspecialchars($group['group_name']); ?></p>
                                         </div>
                                     </div>

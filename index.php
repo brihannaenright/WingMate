@@ -2,7 +2,7 @@
 declare(strict_types=1);
 ?>
 
-<?php include __DIR__ . '/includes/auth-header.php';; ?>
+<?php include __DIR__ . '/includes/auth-header.php'; ?>
 <style>
     .intro-section {
         background: #C30E59;
@@ -37,12 +37,13 @@ declare(strict_types=1);
     }
 
     .button-tertiary {
+        display: inline-block;
+        text-decoration: none;
+        padding: 8px 16px;
         color: white;
         font-weight: 300;
         font-size: 14px;
         border-radius: var(--wm-button-radius);
-        width: auto;
-        height: auto;
         border: 1px solid white;
         cursor: pointer;
         background: transparent;
@@ -149,7 +150,7 @@ declare(strict_types=1);
         <div class="container-fluid">
             <!-- Logo on the left -->
             <div class="navbar-brand">
-                <img src="../../assets/images/wingmate-navbar.png" alt="WingMate" class="navbar-logo" style="height: 50px; width: auto;">
+                <img src="../../assets/images/wingmate-navbar.png" alt="WingMate" class="navbar-logo">
             </div>
         </div>
 
@@ -176,8 +177,8 @@ declare(strict_types=1);
             The dating app where your friends know you best. They vote on your matches because who understands your type better than they do?
         </p>
         <div class="d-flex gap-3 justify-content-center flex-wrap">
-            <button type="button" class="button-secondary" onclick="window.location.href='/features/auth/register.php'">Join Now</button>
-            <button type="button" class="button-tertiary" onclick="window.location.href='/features/auth/login.php'">Already a Member?</button>
+            <a class="button-secondary" href="/features/auth/register.php">Join Now</a>
+            <a class="button-tertiary" href="/features/auth/login.php">Already a Member?</a>
         </div>
     </section>
 
@@ -346,7 +347,7 @@ declare(strict_types=1);
         <h2 class="section-title mb-3">Ready to Meet Your Match (With Your Squad's Approval)?</h2>
         <p class="fs-body mb-4 text-white fw-light">Join WingMate today and experience dating the way it's meant to be—with your best friends by your side.</p>
         <div class="d-flex gap-3 justify-content-center flex-wrap">
-            <button type="button" class="button-primary" onclick="window.location.href='/features/auth/register.php'">Sign Up Free</button>
+            <a class="button-primary" href="/features/auth/register.php">Sign Up Free</a>
         </div>
     </section>
 </div>

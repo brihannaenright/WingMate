@@ -74,7 +74,7 @@ include __DIR__ . '/../../includes/nav-header.php';
     <div class="notifications-header d-flex justify-content-between align-items-center mb-4 pb-4 border-bottom">
         <h1 class="h2 mb-0">Notifications</h1>
         <div>
-            <button class="notification-action-btn" id="refreshNotificationsBtn" onclick="location.reload();" style="display: none;">
+            <button class="notification-action-btn d-none" id="refreshNotificationsBtn" onclick="location.reload();">
                 New notifications
             </button>
             <?php if ($unread_count > 0): ?>
@@ -145,11 +145,7 @@ include __DIR__ . '/../../includes/nav-header.php';
             .then(response => response.json())
             .then(data => {
                 const refreshButton = document.getElementById('refreshNotificationsBtn');
-                if (data.unread_count > 0) {
-                    refreshButton.style.display = 'inline-block';
-                } else {
-                    refreshButton.style.display = 'none';
-                }
+                refreshButton.classList.toggle('d-none', data.unread_count <= 0);
             })
             .catch(error => console.error('Error fetching unread count:', error));
     }

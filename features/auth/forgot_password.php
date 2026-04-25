@@ -1,17 +1,14 @@
 <?php
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../includes/session.php';
+require_once __DIR__ . '/../../includes/utils.php';
 wingmate_start_secure_session();
 
-$error   = '';
-$success = '';
-$step    = isset($_GET['token']) ? 'reset' : 'request';
-$token   = trim($_GET['token'] ?? '');
-
-function clean_input($data) {
-    return htmlspecialchars(stripslashes(trim($data)), ENT_QUOTES, 'UTF-8');
-}
-
+$error      = '';
+$success    = '';
+$reset_link = '';
+$step       = isset($_GET['token']) ? 'reset' : 'request';
+$token      = trim($_GET['token'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'])) {
     if (!wingmate_validate_csrf_token($_POST['csrf_token'] ?? null)) {
@@ -25,17 +22,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'])) {
         $result = $stmt->get_result();
         $stmt->close();
 
-        
+
         if ($result->num_rows === 1) {
             $user = $result->fetch_assoc();
 
-            
+
             $stmt = $conn->prepare("DELETE FROM Password_Resets WHERE user_id = ?");
             $stmt->bind_param('i', $user['user_id']);
             $stmt->execute();
             $stmt->close();
 
-            
+
             $token      = bin2hex(random_bytes(32));
             $expires_at = date('Y-m-d H:i:s', strtotime('+1 hour'));
 
@@ -44,9 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'])) {
             $stmt->execute();
             $stmt->close();
 
-            
-            $reset_link = 'http://' . $_SERVER['HTTP_HOST'] . '/features/auth/forgot_password.php?token=' . $token;
-            $success = 'Reset link generated! <a href="' . htmlspecialchars($reset_link) . '">Click here to reset your password</a>.';
+            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+            $reset_link = $scheme . '://' . $_SERVER['HTTP_HOST'] . '/features/auth/forgot_password.php?token=' . $token;
+            $success = 'Reset link generated:';
         } else {
             $success = 'If that email exists in our system, a reset link has been generated.';
         }
@@ -93,8 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['password'])) {
                 $stmt->execute();
                 $stmt->close();
 
-                $success = 'Password reset successfully! <a href="/features/auth/login.php">Click here to log in</a>.';
-                $step    = 'done';
+                $step = 'done';
             } else {
                 $error = 'This reset link is invalid or has expired. Please request a new one.';
             }
@@ -139,10 +135,15 @@ if ($step === 'reset' && $token !== '') {
 
                     <div class="auth-input-group">
                         <?php if ($error !== ''): ?>
-                            <p class="auth-general-error"><?php echo $error; ?></p>
+                            <p class="general-error"><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></p>
                         <?php endif; ?>
                         <?php if ($success !== ''): ?>
-                            <p class="auth-success"><?php echo $success; ?></p>
+                            <p class="general-success">
+                                <?php echo htmlspecialchars($success, ENT_QUOTES, 'UTF-8'); ?>
+                                <?php if ($reset_link !== ''): ?>
+                                    <a href="<?php echo htmlspecialchars($reset_link, ENT_QUOTES, 'UTF-8'); ?>">Click here to reset your password</a>.
+                                <?php endif; ?>
+                            </p>
                         <?php endif; ?>
                         <div class="auth-input-field">
                             <img src="/assets/images/mail-icon.svg" alt="" class="input-icon">
@@ -151,7 +152,7 @@ if ($step === 'reset' && $token !== '') {
                     </div>
 
                     <div class="buttons">
-                        <button type="button" onclick="window.location.href='/features/auth/login.php'">Back</button>
+                        <a class="button-link" href="/features/auth/login.php">Back</a>
                         <button class="button-secondary" type="submit">Send Link</button>
                     </div>
                 </form>
@@ -170,7 +171,7 @@ if ($step === 'reset' && $token !== '') {
 
                     <div class="auth-input-group">
                         <?php if ($error !== ''): ?>
-                            <p class="auth-general-error"><?php echo $error; ?></p>
+                            <p class="general-error"><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></p>
                         <?php endif; ?>
                         <div class="auth-input-field">
                             <img src="/assets/images/lock-icon.svg" alt="" class="input-icon">
@@ -183,7 +184,7 @@ if ($step === 'reset' && $token !== '') {
                     </div>
 
                     <div class="buttons">
-                        <button type="button" onclick="window.location.href='/features/auth/login.php'">Back</button>
+                        <a class="button-link" href="/features/auth/login.php">Back</a>
                         <button class="button-secondary" type="submit">Reset</button>
                     </div>
                 </form>
@@ -196,10 +197,10 @@ if ($step === 'reset' && $token !== '') {
                 <p2>Your password has been reset</p2>
             </div>
             <div class="auth-input-form">
-                <div style="padding: 23px 27px;">
-                    <p class="auth-success"><?php echo $success; ?></p>
+                <div class="auth-done-panel">
+                    <p class="general-success">Your password has been reset.</p>
                     <div class="buttons">
-                        <button class="button-secondary" onclick="window.location.href='/features/auth/login.php'">Log In</button>
+                        <a class="button-secondary" href="/features/auth/login.php">Log In</a>
                     </div>
                 </div>
             </div>

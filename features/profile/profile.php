@@ -47,6 +47,14 @@ if (!$isOwnProfile) {
 
 // Handle POST requests (only allow on own profile)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isOwnProfile) {
+    // Profile actions are AJAX, so we keep the same CSRF token across the page load.
+    if (!wingmate_validate_csrf_token($_POST['csrf_token'] ?? null, false)) {
+        header('Content-Type: application/json');
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Session validation failed. Please refresh and try again.']);
+        exit;
+    }
+
     $action = $_POST['action'] ?? '';
 
     if ($action === 'update_tags') {
@@ -333,7 +341,7 @@ if ($isOwnProfile || $isFriend) {
 <div class="profile-page">
     <div class="profile-container">
         <?php if (!$isOwnProfile): ?>
-            <div class="profile-back-button" style="margin-bottom: 15px;">
+            <div class="profile-back-button mb-3">
                 <a href="/features/friends/friends.php" class="btn btn-secondary">← Back to Friends</a>
             </div>
         <?php endif; ?>
@@ -414,7 +422,7 @@ if ($isOwnProfile || $isFriend) {
                             <button id="submitCommentBtn" class="profile-btn-save" onclick="saveComment()">Post Comment</button>
                         </div>
                     </div>
-                    <hr style="margin: 20px 0; opacity: 0.2;">
+                    <hr class="my-4 opacity-25">
                 <?php endif; ?>
                 
                 <div id="commentsListContainer" class="comments-list">
@@ -447,7 +455,7 @@ if ($isOwnProfile || $isFriend) {
                         <label class="form-label profile-modal-label">Location</label>
                         <div class="d-flex gap-2 align-items-center">
                             <input type="text" class="form-control profile-modal-input" id="editLocation" readonly placeholder="Pick on map..." value="<?php echo $displayLocation; ?>">
-                            <button type="button" class="btn profile-btn-upload" onclick="openMapModal()" style="white-space:nowrap;">Pick on Map</button>
+                            <button type="button" class="btn profile-btn-upload text-nowrap" onclick="openMapModal()">Pick on Map</button>
                         </div>
                         <input type="hidden" id="editLat" value="<?php echo $userLat; ?>">
                         <input type="hidden" id="editLng" value="<?php echo $userLng; ?>">
@@ -485,7 +493,7 @@ if ($isOwnProfile || $isFriend) {
                 </div>
                 <div class="modal-body text-center">
                     <div class="profile-pic-preview-wrapper">
-                        <img id="picPreview" src="" alt="Preview" class="profile-pic-preview" style="display:none;">
+                        <img id="picPreview" src="" alt="Preview" class="profile-pic-preview d-none">
                         <div class="profile-pic-preview-empty" id="picPreviewEmpty">No photo</div>
                     </div>
                     <label class="btn profile-btn-upload mt-3">
@@ -589,6 +597,7 @@ if ($isOwnProfile || $isFriend) {
     const profileUserId = <?php echo json_encode($profile_user_id); ?>;
     const isOwnProfile = <?php echo json_encode($isOwnProfile); ?>;
     const initialComments = <?php echo json_encode($comments); ?>;
+    const csrfToken = <?php echo json_encode(wingmate_get_csrf_token()); ?>;
 
     // --- Comment Management ---
     const commentsListContainer = document.getElementById('commentsListContainer');
@@ -699,7 +708,7 @@ if ($isOwnProfile || $isFriend) {
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded',
                         },
-                        body: `comment_id=${commentId}&comment_text=${encodeURIComponent(newText)}`
+                        body: `csrf_token=${encodeURIComponent(csrfToken)}&comment_id=${commentId}&comment_text=${encodeURIComponent(newText)}`
                     });
 
                     const data = await response.json();
@@ -740,7 +749,7 @@ if ($isOwnProfile || $isFriend) {
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded',
                         },
-                        body: `comment_id=${commentId}`
+                        body: `csrf_token=${encodeURIComponent(csrfToken)}&comment_id=${commentId}`
                     });
 
                     const data = await response.json();

@@ -143,7 +143,7 @@ if (isset($_SESSION['admin_error'])) {
 <!-- Admin Navbar -->
 <nav class="admin-navbar d-flex justify-content-between align-items-center">
     <div class="admin-navbar-brand">
-        <img src="/assets/images/wingmate-navbar.png" alt="WingMate" style="height: 50px; width: auto;">
+        <img src="/assets/images/wingmate-navbar.png" alt="WingMate" class="navbar-logo">
     </div>
     <div class="admin-navbar-links d-flex gap-3">
         <a href="/features/admin/admin.php" class="admin-nav-link">Admin Console</a>

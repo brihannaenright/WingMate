@@ -41,7 +41,9 @@ body{
 
 button,
 .button-primary,
-.button-secondary {
+.button-secondary,
+a.button-primary,
+a.button-secondary {
     color: #FFF;
     font-family: var(--wm-font-family);
     font-size: 14px;
@@ -58,7 +60,34 @@ button,
     color: var(--wm-button-text);
 }
 
-.button-secondary{
+/* Anchor tags used as buttons need extra rules to look identical to <button>. */
+a.button-primary,
+a.button-secondary,
+a.button-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+
+/* Plain pink button styling, applied to <a> tags used for navigation in
+   the auth forms (e.g. the Back / Register / Login links). */
+a.button-link {
+    color: #FFF;
+    font-family: var(--wm-font-family);
+    font-size: 14px;
+    font-weight: 300;
+    line-height: 24px;
+    letter-spacing: 0.1px;
+    border-radius: var(--wm-button-radius);
+    width: var(--wm-button-width);
+    height: var(--wm-button-height);
+    border: 1px solid var(--wm-button-primary-border);
+    background: var(--wm-button-primary);
+}
+
+.button-secondary,
+a.button-secondary {
     border-color: var(--wm-button-secondary-border);
     background: var(--wm-button-secondary);
 }
@@ -101,6 +130,11 @@ p{
     padding: 15px 20px;
     background: #FFFFFF;
     box-shadow: 0 4px 4px 0 rgba(0, 0, 0, 0.25);
+}
+
+.navbar-logo {
+    height: 50px;
+    width: auto;
 }
 
 .nav-link.active {
@@ -236,6 +270,11 @@ body.page-loading {
 
 .alert-wingmate strong {
     font-weight: 600;
+}
+
+/* Small utility — Bootstrap doesn't ship a cursor-pointer helper. */
+.cursor-pointer {
+    cursor: pointer;
 }
 
 /* Floating button */

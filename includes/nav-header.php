@@ -19,7 +19,7 @@
     <div class="container-fluid">
         <!-- Logo on the left -->
         <div class="navbar-brand">
-            <img src="../../assets/images/wingmate-navbar.png" alt="WingMate" class="navbar-logo" style="height: 50px; width: auto;">
+            <img src="../../assets/images/wingmate-navbar.png" alt="WingMate" class="navbar-logo">
         </div>
         
         <!-- Mobile toggle button -->

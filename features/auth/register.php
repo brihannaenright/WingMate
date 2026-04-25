@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../includes/session.php';
+require_once __DIR__ . '/../../includes/utils.php';
 require_once __DIR__ . '/../../config/config.php';
 
 wingmate_start_secure_session();
@@ -194,16 +195,9 @@ function has_field_errors($fieldErrors) {
 
     return false;
 }
-
-function clean_input($data) {
-  $data = trim($data);
-  $data = stripslashes($data);
-  $data = htmlspecialchars($data, ENT_QUOTES, 'UTF-8');
-  return $data;
-}
 ?>
 
-<?php include __DIR__ . '/../../includes/auth-header.php';; ?>
+<?php include __DIR__ . '/../../includes/auth-header.php'; ?>
 <link rel="stylesheet" href="./auth.css">
 <main class="auth-display container-fluid d-flex min-vh-100 px-0">
     <div class="auth-left-display d-none d-md-flex col-md-6 justify-content-center align-items-center">
@@ -214,7 +208,7 @@ function clean_input($data) {
             <p>Welcome to Wingmate</p>
             <p2>Enter your personal details below</p2>
             <?php if ($registerError !== ''): ?>
-                <p class="auth-general-error"><?php echo htmlspecialchars($registerError, ENT_QUOTES, 'UTF-8'); ?></p>
+                <p class="general-error"><?php echo htmlspecialchars($registerError, ENT_QUOTES, 'UTF-8'); ?></p>
             <?php endif; ?>
             <div class="auth-input-form">
                 <form action="register.php" method="POST">
@@ -225,7 +219,7 @@ function clean_input($data) {
                             <input type="email" name="email" placeholder="Email" value="<?php echo htmlspecialchars($email, ENT_QUOTES, 'UTF-8'); ?>" required>
                         </div>
                         <?php if ($fieldErrors['email'] !== ''): ?>
-                            <p class="auth-field-error"><span class="auth-error-icon">!</span><?php echo htmlspecialchars($fieldErrors['email'], ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p class="field-error"><span class="error-icon">!</span><?php echo htmlspecialchars($fieldErrors['email'], ENT_QUOTES, 'UTF-8'); ?></p>
                         <?php endif; ?>
                     </div>
                     <div class="auth-input-group">
@@ -234,7 +228,7 @@ function clean_input($data) {
                             <input type="password" name="password" placeholder="Password" required>
                         </div>
                         <?php if ($fieldErrors['password'] !== ''): ?>
-                            <p class="auth-field-error"><span class="auth-error-icon">!</span><?php echo htmlspecialchars($fieldErrors['password'], ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p class="field-error"><span class="error-icon">!</span><?php echo htmlspecialchars($fieldErrors['password'], ENT_QUOTES, 'UTF-8'); ?></p>
                         <?php endif; ?>
                     </div>
                     <div class="auth-input-group">
@@ -243,7 +237,7 @@ function clean_input($data) {
                             <input type="password" name="confirm_password" placeholder="Confirm Password" required>
                         </div>
                         <?php if ($fieldErrors['confirm_password'] !== ''): ?>
-                            <p class="auth-field-error"><span class="auth-error-icon">!</span><?php echo htmlspecialchars($fieldErrors['confirm_password'], ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p class="field-error"><span class="error-icon">!</span><?php echo htmlspecialchars($fieldErrors['confirm_password'], ENT_QUOTES, 'UTF-8'); ?></p>
                         <?php endif; ?>
                     </div>
                     <div class="auth-input-group">
@@ -252,7 +246,7 @@ function clean_input($data) {
                             <input type="text" name="first_name" placeholder="First Name" value="<?php echo htmlspecialchars($first_name, ENT_QUOTES, 'UTF-8'); ?>" required>
                         </div>
                         <?php if ($fieldErrors['first_name'] !== ''): ?>
-                            <p class="auth-field-error"><span class="auth-error-icon">!</span><?php echo htmlspecialchars($fieldErrors['first_name'], ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p class="field-error"><span class="error-icon">!</span><?php echo htmlspecialchars($fieldErrors['first_name'], ENT_QUOTES, 'UTF-8'); ?></p>
                         <?php endif; ?>
                     </div>
                     <div class="auth-input-group">
@@ -261,7 +255,7 @@ function clean_input($data) {
                             <input type="text" name="last_name" placeholder="Last Name" value="<?php echo htmlspecialchars($last_name, ENT_QUOTES, 'UTF-8'); ?>" required>
                         </div>
                         <?php if ($fieldErrors['last_name'] !== ''): ?>
-                            <p class="auth-field-error"><span class="auth-error-icon">!</span><?php echo htmlspecialchars($fieldErrors['last_name'], ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p class="field-error"><span class="error-icon">!</span><?php echo htmlspecialchars($fieldErrors['last_name'], ENT_QUOTES, 'UTF-8'); ?></p>
                         <?php endif; ?>
                     </div>
                     <div class="auth-input-group">
@@ -270,14 +264,14 @@ function clean_input($data) {
                             <input type="text" name="dob" placeholder="Date of Birth" value="<?php echo htmlspecialchars($age, ENT_QUOTES, 'UTF-8'); ?>" onfocus="this.type='date'" onblur="if(!this.value)this.type='text'" required>
                         </div>
                         <?php if ($fieldErrors['dob'] !== ''): ?>
-                            <p class="auth-field-error"><span class="auth-error-icon">!</span><?php echo htmlspecialchars($fieldErrors['dob'], ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p class="field-error"><span class="error-icon">!</span><?php echo htmlspecialchars($fieldErrors['dob'], ENT_QUOTES, 'UTF-8'); ?></p>
                         <?php endif; ?>
                     </div>
                     <div class="buttons">
-                        <button type="button" onclick="window.location.href='/features/auth/login.php'">Login</button>
+                        <a class="button-link" href="/features/auth/login.php">Login</a>
                         <button class="button-secondary" type="submit">Register</button>
                         <?php if ($registerSuccess !== ''): ?>
-                            <p class="auth-success"><?php echo htmlspecialchars($registerSuccess, ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p class="general-success"><?php echo htmlspecialchars($registerSuccess, ENT_QUOTES, 'UTF-8'); ?></p>
                         <?php endif; ?>
                     </div>
                 </form>

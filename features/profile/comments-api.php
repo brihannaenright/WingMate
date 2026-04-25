@@ -16,6 +16,15 @@ if (!$current_user_id) {
 
 $action = $_GET['action'] ?? ($_POST['action'] ?? '');
 
+// All state-changing comment actions require a valid CSRF token. Comment editing
+// can fire many times per page load, so we keep the token until the next refresh.
+if ($_SERVER['REQUEST_METHOD'] === 'POST'
+    && !wingmate_validate_csrf_token($_POST['csrf_token'] ?? null, false)) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'error' => 'Session validation failed. Please refresh and try again.']);
+    exit;
+}
+
 // Get comments for a profile
 if ($action === 'get_comments' && $_SERVER['REQUEST_METHOD'] === 'GET') {
     $profile_owner_id = (int) ($_GET['profile_owner_id'] ?? 0);

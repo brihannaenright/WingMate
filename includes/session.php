@@ -51,7 +51,7 @@ function wingmate_get_csrf_token(): string
     return (string) $_SESSION['csrf_token'];
 }
 
-function wingmate_validate_csrf_token(?string $submittedToken): bool
+function wingmate_validate_csrf_token(?string $submittedToken, bool $rotateOnSuccess = true): bool
 {
     if (!is_string($submittedToken) || empty($_SESSION['csrf_token'])) {
         return false;
@@ -59,8 +59,10 @@ function wingmate_validate_csrf_token(?string $submittedToken): bool
 
     $isValid = hash_equals((string) $_SESSION['csrf_token'], $submittedToken);
 
-    if ($isValid) {
-        // Change CSRF token after successful use
+    // For form POSTs we rotate the token after a successful submit. AJAX endpoints
+    // that fire many requests per page load (e.g. profile editing) pass false here
+    // so the same token can be reused until the page is reloaded.
+    if ($isValid && $rotateOnSuccess) {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
 

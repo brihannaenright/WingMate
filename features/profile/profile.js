@@ -3,6 +3,16 @@
 let photos = (typeof userPhotos !== 'undefined' ? userPhotos : []);
 let currentIndex = 0;
 
+// Build a FormData object pre-populated with the CSRF token. Every profile POST
+// action goes through this so we never forget to include it.
+function profileFormData() {
+    const formData = new FormData();
+    if (typeof csrfToken !== 'undefined') {
+        formData.append('csrf_token', csrfToken);
+    }
+    return formData;
+}
+
 function updateCarousel() {
     const img = document.getElementById('carouselImage');
     const empty = document.querySelector('.profile-photo-empty');
@@ -81,7 +91,7 @@ function saveComment() {
         return;
     }
 
-    const formData = new FormData();
+    const formData = profileFormData();
     formData.append('action', 'add_comment');
     formData.append('comment_text', commentText);
     formData.append('profile_owner_id', profileUserId);
@@ -133,7 +143,7 @@ function saveBio() {
     const newBio = document.getElementById('editBio').value.trim();
     const newGender = document.getElementById('editGender').value;
 
-    const formData = new FormData();
+    const formData = profileFormData();
     formData.append('action', 'update_bio');
     formData.append('bio', newBio);
     formData.append('gender', newGender);
@@ -165,10 +175,10 @@ function openPicModal() {
     // Check if there's a primary photo
     if (currentPrimaryId && photos.length > 0) {
         preview.src = photos[0].photo_url;
-        preview.style.display = '';
+        preview.classList.remove('d-none');
         previewEmpty.style.display = 'none';
     } else {
-        preview.style.display = 'none';
+        preview.classList.add('d-none');
         previewEmpty.style.display = '';
     }
 
@@ -189,7 +199,7 @@ document.getElementById('picFileInput')?.addEventListener('change', function(e) 
     selectedPicFile = file;
     const preview = document.getElementById('picPreview');
     preview.src = URL.createObjectURL(file);
-    preview.style.display = '';
+    preview.classList.remove('d-none');
     document.getElementById('picPreviewEmpty').style.display = 'none';
 });
 
@@ -200,7 +210,7 @@ function saveProfilePic() {
         return;
     }
 
-    const formData = new FormData();
+    const formData = profileFormData();
     formData.append('action', 'upload_photo');
     formData.append('photo', selectedPicFile);
     formData.append('is_primary', '1');
@@ -229,7 +239,7 @@ function saveProfilePic() {
 function removeProfilePic() {
     if (!currentPrimaryId) return;
 
-    const formData = new FormData();
+    const formData = profileFormData();
     formData.append('action', 'delete_photo');
     formData.append('photo_id', currentPrimaryId);
 
@@ -285,7 +295,7 @@ document.getElementById('photoFileInput')?.addEventListener('change', function(e
         return;
     }
 
-    const formData = new FormData();
+    const formData = profileFormData();
     formData.append('action', 'upload_photo');
     formData.append('photo', file);
     formData.append('is_primary', '0');
@@ -312,7 +322,7 @@ document.getElementById('photoFileInput')?.addEventListener('change', function(e
 function deletePhoto(index) {
     const photo = photos[index];
 
-    const formData = new FormData();
+    const formData = profileFormData();
     formData.append('action', 'delete_photo');
     formData.append('photo_id', photo.photo_id);
 
@@ -378,7 +388,7 @@ function toggleTag(el) {
 
 function saveTags() {
     const currentIds = currentTagType === 'about_me' ? selectedAboutMe : selectedLookingFor;
-    const formData = new FormData();
+    const formData = profileFormData();
     formData.append('action', 'update_tags');
     formData.append('tag_ids', JSON.stringify(currentIds));
     formData.append('selection_type', currentTagType);
@@ -506,7 +516,7 @@ function confirmLocation() {
     btn.textContent = 'Saving...';
 
     // Send lat/lng to backend
-    const formData = new FormData();
+    const formData = profileFormData();
     formData.append('action', 'update_location');
     formData.append('lat', selectedLat);
     formData.append('lng', selectedLng);

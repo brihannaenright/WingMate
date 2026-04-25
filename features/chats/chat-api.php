@@ -1,5 +1,6 @@
 <?php
-include __DIR__ . '/../../includes/session.php';
+require_once __DIR__ . '/../../includes/session.php';
+require_once __DIR__ . '/../../includes/utils.php';
 require_once __DIR__ . '/../../config/config.php';
 
 wingmate_start_secure_session();
@@ -875,13 +876,6 @@ if ($action === 'create_group' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     exit;
-}
-
-function clean_input($data) {
-  $data = trim($data);
-  $data = stripslashes($data);
-  $data = htmlspecialchars($data, ENT_QUOTES, 'UTF-8');
-  return $data;
 }
 
 http_response_code(400);

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../includes/session.php';
+require_once __DIR__ . '/../../includes/utils.php';
 wingmate_start_secure_session();
 
 $loginError = '';
@@ -89,12 +90,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-function clean_input($data) {
-  $data = trim($data);
-  $data = stripslashes($data);
-  $data = htmlspecialchars($data, ENT_QUOTES, 'UTF-8');
-  return $data;
-}
 ?>
 
 <?php include __DIR__ . '/../../includes/auth-header.php'; ?>
@@ -115,7 +110,7 @@ function clean_input($data) {
                     <!--Displays error message if there is one-->
                     <div class="auth-input-group">
                         <?php if ($loginError !== ''): ?>
-                            <p class="auth-general-error"><?php echo htmlspecialchars($loginError, ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p class="general-error"><?php echo htmlspecialchars($loginError, ENT_QUOTES, 'UTF-8'); ?></p>
                         <?php endif; ?>
                         <div class="auth-input-field <?php echo $loginError !== '' ? 'auth-input-field-error' : ''; ?>">
                             <img src="/assets/images/mail-icon.svg" alt="" class="input-icon">
@@ -128,10 +123,10 @@ function clean_input($data) {
                         </div>
                     <a href="/features/auth/forgot_password.php" class="forgot-link">Forgot password?</a>
                     <div class="buttons">
-                        <button type="button" onclick="window.location.href='/features/auth/register.php'">Register</button>
+                        <a class="button-link" href="/features/auth/register.php">Register</a>
                         <button class="button-secondary" type="submit">Login</button>
                         <?php if ($loginSuccess !== ''): ?>
-                            <p class="auth-success"><?php echo htmlspecialchars($loginSuccess, ENT_QUOTES, 'UTF-8'); ?></p>
+                            <p class="general-success"><?php echo htmlspecialchars($loginSuccess, ENT_QUOTES, 'UTF-8'); ?></p>
                         <?php endif; ?>
                     </div>
                 </form>
