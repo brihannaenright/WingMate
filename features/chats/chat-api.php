@@ -174,18 +174,33 @@ if ($action === 'send_message' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $members = $membersStmt->get_result()->fetch_all(MYSQLI_ASSOC);
         $membersStmt->close();
 
-        // Create receipt records for each recipient
-        $receiptStmt = $conn->prepare("
-            INSERT INTO Message_Receipts (message_id, receiver_id, delivered_at)
-            VALUES (?, ?, UTC_TIMESTAMP())
-        ");
-
-        foreach ($members as $member) {
-            $receiver_id = $member['user_id'];
-            $receiptStmt->bind_param('ii', $message_id, $receiver_id);
-            $receiptStmt->execute();
+        // Create receipt records for all recipients in a single batch INSERT
+        if (!empty($members)) {
+            $values = [];
+            $types = '';
+            $params = [];
+            
+            foreach ($members as $member) {
+                $values[] = '(?, ?, UTC_TIMESTAMP())';
+                $params[] = $message_id;
+                $params[] = $member['user_id'];
+                $types .= 'ii';
+            }
+            
+            $valuesStr = implode(',', $values);
+            $receiptStmt = $conn->prepare("
+                INSERT IGNORE INTO Message_Receipts (message_id, receiver_id, delivered_at)
+                VALUES $valuesStr
+            ");
+            
+            if ($receiptStmt) {
+                $receiptStmt->bind_param($types, ...$params);
+                if (!$receiptStmt->execute()) {
+                    error_log("Failed to create receipts for message $message_id: " . $receiptStmt->error);
+                }
+                $receiptStmt->close();
+            }
         }
-        $receiptStmt->close();
 
         echo json_encode(['success' => true, 'message_id' => $message_id]);
     } else {
@@ -796,39 +811,39 @@ if ($action === 'create_group' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Validate each member is an actual friend of current user
-    foreach ($member_ids as $member_id) {
-        $member_id = (int) $member_id;
-        
-        // Verify this user is an actual accepted friend (prevent DOM manipulation attacks)
-        $stmt = $conn->prepare("
-            SELECT 1 FROM Friendship 
-            WHERE status = 'accepted' 
-            AND (
-                (user_id = ? AND friend_id = ?) OR 
-                (user_id = ? AND friend_id = ?)
-            )
-            LIMIT 1
-        ");
-        
-        if (!$stmt) {
-            http_response_code(500);
-            echo json_encode(['error' => 'Database error']);
-            exit;
-        }
-        
-        $stmt->bind_param('iiii', $current_user_id, $member_id, $member_id, $current_user_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        if ($result->num_rows === 0) {
-            // This user is NOT a friend - reject the request
-            http_response_code(400);
-            echo json_encode(['error' => 'Invalid members - make sure all are your friends']);
-            $stmt->close();
-            exit;
-        }
-        $stmt->close();
+    // Validate all members are actual friends of current user (single batch query)
+    $member_ids_int = array_map('intval', $member_ids);
+    $placeholders = implode(',', array_fill(0, count($member_ids_int), '?'));
+    
+    $stmt = $conn->prepare("
+        SELECT COUNT(*) as valid_count FROM Friendship 
+        WHERE status = 'accepted' 
+        AND (
+            (user_id = ? AND friend_id IN ($placeholders)) OR 
+            (user_id IN ($placeholders) AND friend_id = ?)
+        )
+    ");
+    
+    if (!$stmt) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Database error']);
+        exit;
+    }
+    
+    // Build parameter array: [$current_user_id, ...member_ids, ...member_ids, $current_user_id]
+    $params = array_merge([$current_user_id], $member_ids_int, $member_ids_int, [$current_user_id]);
+    $types = str_repeat('i', count($params));
+    
+    $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    $result = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    
+    // Check if all members are valid friends
+    if ($result['valid_count'] !== count($member_ids_int)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Invalid members - make sure all are your friends']);
+        exit;
     }
 
     try {
@@ -854,17 +869,28 @@ if ($action === 'create_group' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute();
         $stmt->close();
 
-        // Add other members
-        $stmt = $conn->prepare("
-            INSERT INTO Chat_Members (chat_id, user_id, role, joined_at)
-            VALUES (?, ?, 'member', UTC_TIMESTAMP())
-        ");
-        $stmt->bind_param('ii', $chat_id, $member_id);
-        
-        foreach ($member_ids as $member_id) {
+        // Add other members in a single batch INSERT
+        if (!empty($member_ids_int)) {
+            $values = [];
+            $types = '';
+            $params = [];
+            
+            foreach ($member_ids_int as $member_id) {
+                $values[] = '(?, ?, \'member\', UTC_TIMESTAMP())';
+                $params[] = $chat_id;
+                $params[] = $member_id;
+                $types .= 'ii';
+            }
+            
+            $valuesStr = implode(',', $values);
+            $stmt = $conn->prepare("
+                INSERT INTO Chat_Members (chat_id, user_id, role, joined_at)
+                VALUES $valuesStr
+            ");
+            $stmt->bind_param($types, ...$params);
             $stmt->execute();
+            $stmt->close();
         }
-        $stmt->close();
 
         $conn->commit();
         echo json_encode(['success' => true, 'chat_id' => $chat_id]);

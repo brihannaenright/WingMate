@@ -154,8 +154,8 @@ include __DIR__ . '/../../includes/nav-header.php';
             .catch(error => console.error('Error fetching unread count:', error));
     }
 
-    // Check for unread notifications every 5 seconds
+    // Check for unread notifications every 15 seconds
     document.addEventListener('DOMContentLoaded', function() {
-        setInterval(checkForUnreadNotifications, 5000);
+        setInterval(checkForUnreadNotifications, 15000);
     });
 </script>

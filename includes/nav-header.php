@@ -107,9 +107,9 @@
             .catch(error => console.error('Error fetching notifications:', error));
     }
 
-    // Update notif badge every 10 seconds
+    // Update notif badge every 30 seconds
     document.addEventListener('DOMContentLoaded', function() {
         updateNotificationBadge();
-        setInterval(updateNotificationBadge, 10000);
+        setInterval(updateNotificationBadge, 30000);
     });
 </script>
