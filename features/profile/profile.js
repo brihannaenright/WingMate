@@ -165,20 +165,22 @@ function saveBio() {
 // --- Profile Picture Modal ---
 let selectedPicFile = null;
 let currentPrimaryId = (typeof primaryPhotoId !== 'undefined') ? primaryPhotoId : null;
+let currentPrimaryUrl = (typeof primaryPhotoUrl !== 'undefined') ? primaryPhotoUrl : null;
+
 
 function openPicModal() {
     const preview = document.getElementById('picPreview');
     const previewEmpty = document.getElementById('picPreviewEmpty');
 
-    // Check if there's a primary photo
-    if (currentPrimaryId && photos.length > 0) {
-        preview.src = photos[0].photo_url;
+    if (currentPrimaryId && currentPrimaryUrl) {
+        preview.src = currentPrimaryUrl;
         preview.style.display = '';
         previewEmpty.style.display = 'none';
     } else {
         preview.style.display = 'none';
         previewEmpty.style.display = '';
     }
+
 
     selectedPicFile = null;
     document.getElementById('picFileInput').value = '';
@@ -218,19 +220,18 @@ function saveProfilePic() {
             if (!res.ok) throw new Error('Server ' + res.status + ': ' + text.substring(0, 200));
             try { return JSON.parse(text); } catch { throw new Error('Invalid response: ' + text.substring(0, 200)); }
         }))
-        .then(data => {
+                .then(data => {
             if (data.success) {
                 // Add to beginning of photos array
-                photos.unshift({ photo_id: data.photo_id, photo_url: data.photo_url });
-                currentIndex = 0;
-                updateCarousel();
                 currentPrimaryId = data.photo_id;
+                currentPrimaryUrl = data.photo_url;
                 const picModal = bootstrap.Modal.getInstance(document.getElementById('picModal'));
                 if (picModal) picModal.hide();
             } else {
                 alert('Upload failed: ' + (data.error || 'Unknown error'));
             }
         })
+
         .catch(err => alert('Error: ' + err.message));
 }
 
@@ -246,19 +247,18 @@ function removeProfilePic() {
             if (!res.ok) throw new Error('Server ' + res.status + ': ' + text.substring(0, 200));
             try { return JSON.parse(text); } catch { throw new Error('Invalid response: ' + text.substring(0, 200)); }
         }))
-        .then(data => {
+                .then(data => {
             if (data.success) {
                 // Remove first photo from array
-                photos.shift();
-                currentIndex = 0;
                 currentPrimaryId = null;
-                updateCarousel();
+                currentPrimaryUrl = null;
                 const picModal = bootstrap.Modal.getInstance(document.getElementById('picModal'));
                 if (picModal) picModal.hide();
             } else {
                 alert('Remove failed: ' + (data.error || 'Unknown error'));
             }
         })
+
         .catch(err => alert('Error: ' + err.message));
 }
 

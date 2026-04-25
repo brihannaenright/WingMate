@@ -364,32 +364,28 @@ if ($isOwnProfile || $isFriend) {
                     Gender: <?php echo htmlspecialchars($genderLabel); ?>
                 </div>
                 <p class="profile-bio" id="profileBio"><?php echo $userBio ?: 'No bio yet'; ?></p>
-                <?php if ($isOwnProfile): ?>
-                    <button class="profile-edit-icon profile-edit-icon--banner" onclick="openBioModal()" title="Edit">✏️</button>
-                <?php endif; ?>
             </div>
         </div>
 
         <!-- Top-Right Card: Orange Photo Carousel -->
         <div class="profile-photos-card">
-            <?php if ($primaryPhoto): ?>
-                <img id="carouselImage" src="<?php echo $primaryPhoto['photo_url']; ?>" alt="Profile photo" class="profile-photo-main">
+            <?php if (!empty($userPhotos)): ?>
+                <img id="carouselImage" src="<?php echo $userPhotos[0]['photo_url']; ?>" alt="Profile photo" class="profile-photo-main">
             <?php else: ?>
                 <div class="profile-photo-empty">No Photos</div>
             <?php endif; ?>
             
-            <?php if ($primaryPhoto || !empty($userPhotos)): ?>
+            <?php if (!empty($userPhotos)): ?>
                 <div class="profile-photo-dots"></div>
             <?php endif; ?>
+
             
             <div class="profile-photo-nav">
                 <button class="profile-photo-arrow" onclick="prevPhoto()">❮</button>
                 <button class="profile-photo-arrow" onclick="nextPhoto()">❯</button>
             </div>
 
-            <?php if ($isOwnProfile): ?>
-                <button class="profile-edit-icon profile-edit-icon--photo" onclick="openPhotosModal()" title="Edit">✏️</button>
-            <?php endif; ?>
+            
         </div>
 
         <!-- Bottom-Left Card: Tags Sidebar + Friends Comments -->
@@ -402,9 +398,6 @@ if ($isOwnProfile || $isFriend) {
                         <?php echo htmlspecialchars($tag['tag_name']); ?>
                     </span>
                 <?php endforeach; ?>
-                <?php if ($isOwnProfile): ?>
-                    <button class="profile-add-tag" onclick="openTagPickerModal('about_me')" title="Add tags">+</button>
-                <?php endif; ?>
             </div>
 
             <!-- What My Friends Say Comments Card -->
@@ -586,14 +579,10 @@ if ($isOwnProfile || $isFriend) {
     const aboutMeTagIds = <?php echo json_encode(array_values($aboutMeTagIds)); ?>;
     const lookingForTagIds = <?php echo json_encode(array_values($lookingForTagIds)); ?>;
     
-    // Combine primary and carousel photos into userPhotos array for profile.js
-    const primaryPhotoData = <?php echo json_encode($primaryPhoto); ?>;
-    const carouselPhotosData = <?php echo json_encode(array_values($userPhotos)); ?>;
-    let userPhotos = [];
-    if (primaryPhotoData) {
-        userPhotos.push(primaryPhotoData);
-    }
-    userPhotos = userPhotos.concat(carouselPhotosData);
+        // Carousel photos 
+    const userPhotos = <?php echo json_encode(array_values($userPhotos)); ?>;
+    const primaryPhotoUrl = <?php echo json_encode($primaryPhoto ? $primaryPhoto['photo_url'] : null); ?>;
+
     
     const primaryPhotoId = <?php echo json_encode($primaryPhoto ? (int)$primaryPhoto['photo_id'] : null); ?>;
     const currentUserId = <?php echo json_encode($current_user_id); ?>;
