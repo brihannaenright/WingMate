@@ -138,9 +138,18 @@ function prevPhoto() {
     renderCarousel();
 }
 
+let isSwipeInFlight = false;
+
 function swipeAction(type) {
+    if (isSwipeInFlight) return;
     const c = currentCandidate();
     if (!c) return;
+
+    isSwipeInFlight = true;
+    const skipBtn = document.querySelector('.swipe-btn--skip');
+    const matchBtn = document.querySelector('.swipe-btn--match');
+    if (skipBtn) skipBtn.disabled = true;
+    if (matchBtn) matchBtn.disabled = true;
 
     const formData = new FormData();
     formData.append('action', 'swipe');
@@ -160,7 +169,12 @@ function swipeAction(type) {
             swipeCardIndex++;
             swipeRender();
         })
-        .catch(err => alert('Error: ' + err.message));
+        .catch(err => alert('Error: ' + err.message))
+        .finally(() => {
+            isSwipeInFlight = false;
+            if (skipBtn) skipBtn.disabled = false;
+            if (matchBtn) matchBtn.disabled = false;
+        });
 }
 
 document.querySelector('.swipe-btn--skip').addEventListener('click', () => swipeAction('dislike'));
