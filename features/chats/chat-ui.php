@@ -341,6 +341,25 @@ const ChatManager = {
                 });
             }
         }
+
+        // Pause/resume polling based on tab visibility
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // Stop polling when tab is hidden
+                if (this.messagePoller) {
+                    clearInterval(this.messagePoller);
+                    this.messagePoller = null;
+                }
+            } else if (this.currentChatId) {
+                // Resume polling when tab becomes visible
+                this.loadMessages();
+                this.messagePoller = setInterval(() => {
+                    if (!this.currentChatId) return;
+                    if (document.hidden) return;
+                    this.loadMessages();
+                }, 8000);
+            }
+        });
     },
 
     loadGroupChat: function(groupId, groupName, profilePictureUrl = null, onLoadComplete = null) {
@@ -391,7 +410,7 @@ const ChatManager = {
                     if (document.hidden) return;
 
                     this.loadMessages();
-                }, 3000);
+                }, 8000);
 
                 if (onLoadComplete) onLoadComplete(true);
             })
@@ -458,7 +477,7 @@ const ChatManager = {
                     if (document.hidden) return;
 
                     this.loadMessages();
-                }, 3000);
+                }, 8000);
 
                 if (onLoadComplete) onLoadComplete(true);
             })
@@ -470,11 +489,20 @@ const ChatManager = {
     },
 
     loadMessages: function() {
-    if (!this.currentChatId) return;
+        if (!this.currentChatId) return;
 
-    fetch(`/features/chats/chat-api.php?action=get_messages&chat_id=${this.currentChatId}`)
-        .then(response => response.json())
-        .then(data => {
+        // Skip polling if tab is hidden
+        if (document.hidden) return;
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+        fetch(`/features/chats/chat-api.php?action=get_messages&chat_id=${this.currentChatId}`, {
+            signal: controller.signal
+        })
+            .then(response => response.json())
+            .then(data => {
+                clearTimeout(timeoutId);
             const messagesContainer = document.getElementById('messagesContainer');
 
             if (!data.messages) {
@@ -562,7 +590,12 @@ const ChatManager = {
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
         })
-        .catch(error => console.error('Error loading messages:', error));
+        .catch(error => {
+            clearTimeout(timeoutId);
+            if (error.name !== 'AbortError') {
+                console.error('Error loading messages:', error);
+            }
+        });
     },
 
     handleSendMessage: function(e) {
