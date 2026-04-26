@@ -213,7 +213,7 @@
         border-radius: var(--profile-card-radius);
         position: relative;
         background: var(--profile-orange);
-        min-height: 520px;
+        height: 520px;
         display: flex;
         flex-direction: column;
         padding: 18px 18px 75px 18px;
@@ -254,7 +254,6 @@
         object-fit: cover;
         display: block;
         border-radius: 12px;
-        flex: 1;
     }
 
     /* Container for the carousel navigation dots */
