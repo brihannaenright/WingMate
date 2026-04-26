@@ -1,37 +1,28 @@
 <?php
-/**
- * Chat UI Component
- * Include this file in any page where you want to display the chat interface
- * 
- * Requirements:
- * - Must be included after nav-header.php
- * - Requires currentUserId to be available in JavaScript (set before including this file)
- * - Requires Bootstrap 5 to be available
- */
-
-// Only include if not already included
+// Only executes if this is the first time the file has been included
 if (!defined('CHAT_UI_INCLUDED')) {
     define('CHAT_UI_INCLUDED', true);
 ?>
+
 <link rel="stylesheet" href="/features/chats/chats.css">
 
-<div class="chat d-flex flex-column">
-    <div id="emptyState" class="chat-empty-state">
+<div class="chat d-flex flex-column flex-grow-1 min-vh-0">
+    <div id="emptyState" class="chat-empty-state h-100 w-100 d-flex flex-column align-items-center justify-content-center">
         <div class="empty-state-content d-flex flex-column align-items-center justify-content-center">
             <p>Select a conversation</p>
             <p>Click on a contact to start messaging</p>
         </div>
     </div>
-    <div id="chatContent" class="chat-content d-none flex-column">
-        <div class="chat-container d-flex flex-column">
-            <div class="chat-header d-flex flex-row">
+    <div id="chatContent" class="chat-content d-none flex-grow-1 min-vh-0 flex-column p-5">
+        <div class="chat-container d-flex flex-column flex-grow-1 min-vh-0 rounded bg-white border">
+            <div class="chat-header d-flex flex-row w-100 rounded-top bg-light p-3">
                 <div class="header-info d-flex flex-row gap-3">
                     <div class="profile-image-wrapper">
-                        <img id="chatProfilePicture" class="profile-pic-header" src="" alt="Profile">
+                        <img id="chatProfilePicture" class="profile-pic-header w-100 h-100 " src="" alt="Profile">
                     </div>
                     <h3 id="chatFriendName"></h3>
                 </div>
-                <div class="report-settings gap-3">
+                <div class="report-settings gap-3 ms-auto">
                     <button id="headerReportBtn" class="report-btn" data-bs-toggle="modal" data-bs-target="#reportModal">
                             <img src="/assets/images/flag-icon.svg" alt="Report" title="Report this user">
                     </button>
@@ -40,12 +31,12 @@ if (!defined('CHAT_UI_INCLUDED')) {
                     </button>
                 </div>
             </div>
-            <div id="messagesContainer" class="messages-container d-flex flex-column">
+            <div id="messagesContainer" class="messages-container d-flex flex-column overflow-y-auto p-5">
                 <!-- Messages will be loaded here -->
             </div>
-            <div class="chat-input-area">
-                <form id="messageForm" class="message-form">
-                    <textarea id="messageInput" class="message-input" placeholder="Type a message..." rows="1" autocomplete="off"></textarea>
+            <div class="chat-input-area bg-white p-3 border-top flex-shrink-0">
+                <form id="messageForm" class="message-form d-flex gap-2">
+                    <textarea id="messageInput" class="message-input flex-grow-1 px-1 py-2 border rounded-3" placeholder="Type a message..." rows="1" autocomplete="off"></textarea>
                     <button type="submit" class="btn-send">Send</button>
                 </form>
             </div>
@@ -284,7 +275,7 @@ function showConfirmation(message, onConfirm, onCancel = null) {
 function showToast(message, type = 'info', duration = 3000) {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
-    toast.className = `toast-notification toast-${type}`;
+    toast.className = `toast-notification text-white mb-1 rounded p-3 mw-100 toast-${type}`;
     toast.textContent = message;
     
     container.appendChild(toast);
@@ -506,7 +497,7 @@ const ChatManager = {
             const messagesContainer = document.getElementById('messagesContainer');
 
             if (!data.messages) {
-                messagesContainer.innerHTML = '<p class="no-messages">Error loading messages</p>';
+                messagesContainer.innerHTML = '<p class="no-messages text-muted small m-auto text-center">Error loading messages</p>';
                 return;
             }
 
@@ -516,17 +507,17 @@ const ChatManager = {
             messagesContainer.innerHTML = '';
 
             if (data.messages.length === 0) {
-                messagesContainer.innerHTML = '<p class="no-messages">No messages yet. Start the conversation!</p>';
+                messagesContainer.innerHTML = '<p class="no-messages text-muted small m-auto text-center">No messages yet. Start the conversation!</p>';
                 return;
             }
 
             data.messages.forEach(msg => {
                 const messageDiv = document.createElement('div');
-                messageDiv.className = `message ${msg.sender_id == this.currentUserId ? 'sent' : 'received'}`;
+                messageDiv.className = `message ${msg.sender_id == this.currentUserId ? 'sent' : 'received'} d-flex flex-column max-w-75 word-break`;
 
                 let senderName = '';
                 if (this.chatType === 'group' && msg.sender_id != this.currentUserId) {
-                    senderName = `<div class="message-sender-name">${this.escapeHtml(msg.first_name + ' ' + msg.last_name)}</div>`;
+                    senderName = `<div class="message-sender-name small text-muted mb-1 px-1 font-weight-bold">${this.escapeHtml(msg.first_name + ' ' + msg.last_name)}</div>`;
                 }
 
                 let reportButton = '';
@@ -538,11 +529,11 @@ const ChatManager = {
 
                 // Determine receipt status for sent messages
                 let receiptStatus = '';
-                let timeClass = 'message-time';
+                let timeClass = 'message-time mt-1 px-2 text-muted small';
                 if (msg.sender_id == this.currentUserId) {
                     if (msg.read_at) {
                         receiptStatus = ' • Read';
-                        timeClass = 'message-time message-read';
+                        timeClass = 'message-time message-read mt-1 px-2 small';
                     } else if (msg.delivered_at) {
                         receiptStatus = ' • Delivered';
                     }
