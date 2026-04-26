@@ -53,7 +53,7 @@
     border-radius: 0.75rem;
     padding: 0.875rem;
     margin-bottom: 0.875rem;
-    transition: box-shadow 0.2s ease, opacity 0.4s ease, transform 0.4s ease;
+    transition: box-shadow 0.2s ease;
 }
 .vote-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
 
@@ -109,6 +109,76 @@
     font-weight: 300;
     padding: 2rem 0;
     font-size: 0.875rem;
+}
+
+/* ── Comment input (right panel) ── */
+.vote-comment-input {
+    width: 100%;
+    border: 1px solid #e0e0e0;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    font-family: var(--wm-font-family);
+    color: #2c1a2e;
+    outline: none;
+    resize: none;
+    transition: border-color 0.2s;
+}
+.vote-comment-input:focus {
+    border-color: var(--wm-button-secondary);
+}
+.vote-comment-input::placeholder {
+    color: #b0a0b4;
+}
+
+/* ── Comments list (left panel) ── */
+.vote-comment {
+    background: #f9f9f9;
+    border-radius: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.vote-comment-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.vote-comment-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #2c1a2e;
+    margin-right: 0.4rem;
+}
+
+.vote-comment-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.1rem 0.4rem;
+    border-radius: 99px;
+}
+.vote-comment-badge--approve {
+    background: #d4edda;
+    color: #2e9e5e;
+}
+.vote-comment-badge--dislike {
+    background: #fde8cc;
+    color: #c07020;
+}
+
+.vote-comment-text {
+    font-size: 0.8rem;
+    color: #555;
+    margin: 0.25rem 0 0;
 }
 
 @media (max-width: 768px) {

@@ -46,28 +46,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $action = $_POST['action'] ?? '';
 
-    // Cast a vote (vote_type: 1 = approve, 0 = dislike)
+    // Cast a vote with optional comment
     if ($action === 'cast_vote' && !empty($_POST['request_id'])) {
         $request_id = (int) $_POST['request_id'];
         $vote_type  = ($_POST['vote_type'] ?? '') === 'approve' ? 1 : 0;
+        $comment    = trim($_POST['comment'] ?? '');
+        $comment    = $comment !== '' ? htmlspecialchars($comment, ENT_QUOTES, 'UTF-8') : null;
 
         try {
-            $stmt = $conn->prepare("INSERT IGNORE INTO Friend_Votes (request_id, friend_voter_id, vote_type) VALUES (?, ?, ?)");
-            $stmt->bind_param('iii', $request_id, $current_user_id, $vote_type);
+            $stmt = $conn->prepare("INSERT IGNORE INTO Friend_Votes (request_id, friend_voter_id, vote_type, comment) VALUES (?, ?, ?, ?)");
+            $stmt->bind_param('iiis', $request_id, $current_user_id, $vote_type, $comment);
             $stmt->execute();
             $stmt->close();
 
-            // Recalculate Decision totals
-            $stmt = $conn->prepare("SELECT COUNT(*) AS total, SUM(vote_type) AS approved FROM Friend_Votes WHERE request_id = ?");
+            $stmt = $conn->prepare(
+                "SELECT mr.match_owner_id, mr.matched_user_id,
+                        COUNT(fv.friend_voter_id) AS total_votes,
+                        COALESCE(SUM(fv.vote_type), 0) AS approved
+                 FROM Match_Requests mr
+                 LEFT JOIN Friend_Votes fv ON fv.request_id = mr.request_id
+                 WHERE mr.request_id = ?
+                 GROUP BY mr.request_id"
+            );
             $stmt->bind_param('i', $request_id);
             $stmt->execute();
-            $d        = $stmt->get_result()->fetch_assoc();
+            $r = $stmt->get_result()->fetch_assoc();
             $stmt->close();
 
-            $total    = (int) $d['total'];
-            $approved = (int) $d['approved'];
-            $pct      = $total > 0 ? (int) round(($approved / $total) * 100) : 0;
-            $is_match = $pct >= 50 ? 1 : 0;
+            $ownerId   = (int) $r['match_owner_id'];
+            $matchedId = (int) $r['matched_user_id'];
+            $total     = (int) $r['total_votes'];
+            $approved  = (int) $r['approved'];
+
+            $stmt = $conn->prepare("SELECT COUNT(*) AS c FROM Friendship WHERE status = 'accepted' AND (user_id = ? OR friend_id = ?)");
+            $stmt->bind_param('ii', $ownerId, $ownerId);
+            $stmt->execute();
+            $friendCount = (int) $stmt->get_result()->fetch_assoc()['c'];
+            $stmt->close();
+
+            $pct      = $friendCount > 0 ? (int) round(($approved / $friendCount) * 100) : 0;
+            $is_match = $pct >= 40 ? 1 : 0;
 
             $stmt = $conn->prepare("INSERT INTO Decision (match_request_id, total_votes, approval_votes, approval_percentage, is_match)
                 VALUES (?, ?, ?, ?, ?)
@@ -76,23 +94,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
             $stmt->close();
 
+            if ($is_match === 1) {
+                $stmt = $conn->prepare(
+                    "SELECT mr.request_id, d.is_match
+                     FROM Match_Requests mr
+                     LEFT JOIN Decision d ON d.match_request_id = mr.request_id
+                     WHERE mr.match_owner_id = ? AND mr.matched_user_id = ?"
+                );
+                $stmt->bind_param('ii', $matchedId, $ownerId);
+                $stmt->execute();
+                $reciprocal = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+
+                if ($reciprocal && (int) $reciprocal['is_match'] === 1) {
+                    $user1 = min($ownerId, $matchedId);
+                    $user2 = max($ownerId, $matchedId);
+
+                    $stmt = $conn->prepare("SELECT match_id, status FROM Matches WHERE user1_id = ? AND user2_id = ?");
+                    $stmt->bind_param('ii', $user1, $user2);
+                    $stmt->execute();
+                    $existing = $stmt->get_result()->fetch_assoc();
+                    $stmt->close();
+
+                    if ($existing && $existing['status'] !== 'active') {
+                        $matchId = (int) $existing['match_id'];
+
+                        $stmt = $conn->prepare("UPDATE Matches SET status = 'active', matched_at = NOW() WHERE match_id = ?");
+                        $stmt->bind_param('i', $matchId);
+                        $stmt->execute();
+                        $stmt->close();
+
+                        $stmt = $conn->prepare("UPDATE Match_Requests SET status = 'approved', closed_at = NOW() WHERE request_id IN (?, ?)");
+                        $stmt->bind_param('ii', $request_id, $reciprocal['request_id']);
+                        $stmt->execute();
+                        $stmt->close();
+
+                        $stmt = $conn->prepare("INSERT INTO Notifications (recipient_id, notification_type, reference_type, reference_id, created_at) VALUES (?, 'match_approved', 'match', ?, NOW())");
+                        $stmt->bind_param('ii', $user1, $matchId);
+                        $stmt->execute();
+                        $stmt->bind_param('ii', $user2, $matchId);
+                        $stmt->execute();
+                        $stmt->close();
+                    }
+                }
+            }
+
             $_SESSION['vote_success'] = $vote_type === 1 ? 'You approved this match!' : 'You disliked this match.';
         } catch (Exception $e) {
             $_SESSION['vote_error'] = 'An error occurred while casting your vote. Please try again.';
-        }
-    }
-
-    // Skip match — mark as approved directly (Premium)
-    if ($action === 'skip_match' && !empty($_POST['request_id'])) {
-        $request_id = (int) $_POST['request_id'];
-        try {
-            $stmt = $conn->prepare("UPDATE Match_Requests SET status = 'approved', closed_at = NOW() WHERE request_id = ? AND match_owner_id = ?");
-            $stmt->bind_param('ii', $request_id, $current_user_id);
-            $stmt->execute();
-            $stmt->close();
-            $_SESSION['vote_success'] = 'Match approved directly with Premium!';
-        } catch (Exception $e) {
-            $_SESSION['vote_error'] = 'An error occurred. Please try again.';
         }
     }
 
@@ -102,14 +151,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 include __DIR__ . '/../../includes/nav-header.php';
 
-// Fetch my pending match votes (matches I own still being voted on)
+// Fetch my pending match votes with comment counts
 $myVotes = [];
 try {
     $stmt = $conn->prepare("
         SELECT mr.request_id, mr.matched_user_id,
                up.first_name, up.last_name, p.photo_url,
                COALESCE(d.total_votes, 0) AS total_votes,
-               COALESCE(d.approval_percentage, 0) AS approval_percentage
+               COALESCE(d.approval_percentage, 0) AS approval_percentage,
+               (SELECT COUNT(*) FROM Friend_Votes fv WHERE fv.request_id = mr.request_id AND fv.comment IS NOT NULL AND fv.comment != '') AS comment_count
         FROM Match_Requests mr
         JOIN User_Profile up ON up.user_id = mr.matched_user_id
         LEFT JOIN User_Pictures p ON p.user_id = mr.matched_user_id AND p.is_primary = 1 AND p.is_removed = 0
@@ -125,12 +175,34 @@ try {
     $voteError = 'An error occurred while loading your match votes.';
 }
 
+// Fetch comments for each of my match votes
+$matchComments = [];
+foreach ($myVotes as $v) {
+    try {
+        $stmt = $conn->prepare("
+            SELECT fv.comment, fv.vote_type, fv.created_at,
+                   up.first_name, up.last_name, p.photo_url
+            FROM Friend_Votes fv
+            JOIN User_Profile up ON up.user_id = fv.friend_voter_id
+            LEFT JOIN User_Pictures p ON p.user_id = fv.friend_voter_id AND p.is_primary = 1 AND p.is_removed = 0
+            WHERE fv.request_id = ? AND fv.comment IS NOT NULL AND fv.comment != ''
+            ORDER BY fv.created_at DESC
+        ");
+        $stmt->bind_param('i', $v['request_id']);
+        $stmt->execute();
+        $matchComments[$v['request_id']] = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+    } catch (Exception $e) {
+        $matchComments[$v['request_id']] = [];
+    }
+}
+
 // Fetch vote requests sent to me that I haven't voted on yet
 $friendVotes = [];
 try {
     $stmt = $conn->prepare("
         SELECT n.reference_id AS request_id,
-               mr.match_owner_id,
+               mr.match_owner_id, mr.matched_user_id,
                req.first_name AS req_first, req.last_name AS req_last, req_p.photo_url AS req_photo,
                cand.first_name AS cand_first, cand.last_name AS cand_last, cand_p.photo_url AS cand_photo
         FROM Notifications n
@@ -183,8 +255,10 @@ try {
                     <?php endif; ?>
 
                     <?php foreach ($myVotes as $v):
-                        $pct      = (int) $v['approval_percentage'];
-                        $hasVotes = (int) $v['total_votes'] > 0;
+                        $pct         = (int) $v['approval_percentage'];
+                        $hasVotes    = (int) $v['total_votes'] > 0;
+                        $commentCount = (int) $v['comment_count'];
+                        $comments    = $matchComments[$v['request_id']] ?? [];
                     ?>
                     <div class="vote-card" id="match-<?php echo (int) $v['request_id']; ?>">
                         <div class="d-flex align-items-center gap-2 mb-2">
@@ -195,7 +269,15 @@ try {
                             <?php endif; ?>
                             <div>
                                 <p class="vote-name"><?php echo htmlspecialchars($v['first_name'] . ' ' . $v['last_name']); ?></p>
-                                <small class="text-primary">View Profile &middot; See Comments</small>
+                                <small>
+                                    <a href="/features/profile/profile.php?user_id=<?php echo (int) $v['matched_user_id']; ?>" class="text-primary">View Profile</a>
+                                    <?php if ($commentCount > 0): ?>
+                                        &middot;
+                                        <a href="#" class="text-primary vote-comments-toggle" data-target="comments-<?php echo (int) $v['request_id']; ?>">
+                                            See Comments (<?php echo $commentCount; ?>)
+                                        </a>
+                                    <?php endif; ?>
+                                </small>
                             </div>
                         </div>
 
@@ -207,17 +289,37 @@ try {
                             <div class="vote-progress mt-1 mb-1">
                                 <div class="vote-progress__fill" style="width:<?php echo $pct; ?>%"></div>
                             </div>
-                            <small class="text-muted d-block"><?php echo $pct; ?>% approve &middot; <?php echo 100 - $pct; ?>% dislike</small>
+                            <small class="text-muted d-block"><?php echo $pct; ?>% approval &middot; need 40% to match</small>
                         <?php else: ?>
                             <small class="text-muted d-block mt-1">Waiting on your friends!</small>
                         <?php endif; ?>
 
-                        <form method="POST" class="mt-2" onsubmit="animateOut(<?php echo (int) $v['request_id']; ?>)">
-                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
-                            <input type="hidden" name="action" value="skip_match">
-                            <input type="hidden" name="request_id" value="<?php echo (int) $v['request_id']; ?>">
-                            <button type="submit" class="button-secondary w-100">⚡ Skip votes and match anyway with Premium!</button>
-                        </form>
+                        <!-- Comments section — hidden by default, toggled by "See Comments" -->
+                        <?php if (!empty($comments)): ?>
+                        <div class="vote-comments" id="comments-<?php echo (int) $v['request_id']; ?>" style="display:none;">
+                            <hr class="my-2">
+                            <p class="vote-stats-label mb-2">Friend Comments:</p>
+                            <?php foreach ($comments as $c): ?>
+                            <div class="vote-comment">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <?php if ($c['photo_url']): ?>
+                                        <img src="/Uploads/<?php echo htmlspecialchars($c['photo_url']); ?>" class="vote-comment-avatar" alt="">
+                                    <?php else: ?>
+                                        <div class="vote-comment-avatar vote-avatar--pink"><?php echo htmlspecialchars(strtoupper($c['first_name'][0])); ?></div>
+                                    <?php endif; ?>
+                                    <div>
+                                        <span class="vote-comment-name"><?php echo htmlspecialchars($c['first_name'] . ' ' . $c['last_name']); ?></span>
+                                        <span class="vote-comment-badge <?php echo $c['vote_type'] ? 'vote-comment-badge--approve' : 'vote-comment-badge--dislike'; ?>">
+                                            <?php echo $c['vote_type'] ? '✓ Approved' : '✕ Disliked'; ?>
+                                        </span>
+                                    </div>
+                                </div>
+                                <p class="vote-comment-text"><?php echo htmlspecialchars($c['comment'], ENT_QUOTES, 'UTF-8'); ?></p>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php endif; ?>
+
                     </div>
                     <?php endforeach; ?>
 
@@ -259,17 +361,28 @@ try {
                             <?php endif; ?>
                             <div>
                                 <p class="vote-name"><?php echo htmlspecialchars($v['cand_first'] . ' ' . $v['cand_last']); ?></p>
-                                <small class="text-primary">View Profile</small>
+                                <small>
+                                    <a href="/features/profile/profile.php?user_id=<?php echo (int) $v['matched_user_id']; ?>" class="text-primary">View Profile</a>
+                                </small>
                             </div>
                         </div>
 
-                        <!-- Vote buttons -->
-                        <form method="POST" class="d-flex gap-2">
+                        <!-- Vote form with optional comment -->
+                        <form method="POST">
                             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                             <input type="hidden" name="action" value="cast_vote">
                             <input type="hidden" name="request_id" value="<?php echo (int) $v['request_id']; ?>">
-                            <button type="submit" name="vote_type" value="approve" class="button-primary w-50">✓ Approve</button>
-                            <button type="submit" name="vote_type" value="dislike" class="button-secondary w-50">✕ Dislike</button>
+
+                            <textarea name="comment"
+                                      class="vote-comment-input mb-2"
+                                      placeholder="Leave a comment (optional)..."
+                                      maxlength="500"
+                                      rows="2"></textarea>
+
+                            <div class="d-flex gap-2">
+                                <button type="submit" name="vote_type" value="approve" class="button-primary w-50">✓ Approve</button>
+                                <button type="submit" name="vote_type" value="dislike" class="button-secondary w-50">✕ Dislike</button>
+                            </div>
                         </form>
                     </div>
                     <?php endforeach; ?>
@@ -282,10 +395,20 @@ try {
 </div>
 
 <script>
-function animateOut(id) {
-    const card = document.getElementById('match-' + id);
-    if (card) { card.style.opacity = '0'; card.style.transform = 'translateX(30px)'; }
-}
+// Toggle comments visibility on left panel cards
+document.querySelectorAll('.vote-comments-toggle').forEach(link => {
+    link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const target = document.getElementById(this.dataset.target);
+        if (target) {
+            const isHidden = target.style.display === 'none';
+            target.style.display = isHidden ? 'block' : 'none';
+            this.textContent = isHidden
+                ? this.textContent.replace('See', 'Hide')
+                : this.textContent.replace('Hide', 'See');
+        }
+    });
+});
 </script>
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>
