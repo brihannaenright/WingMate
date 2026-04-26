@@ -193,10 +193,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isOwnProfile) {
             exit;
         }
 
-        // Reverse geocode via Nominatim
+        // Release session lock so other tabs don't block on this request
+        session_write_close();
+
+        // 3s timeout so a slow Nominatim response doesn't hold the PHP slot
         $url = "https://nominatim.openstreetmap.org/reverse?lat=$lat&lon=$lng&format=json&zoom=10";
-        $opts = ['http' => ['header' => "User-Agent: WingMate/1.0\r\n"]];
-        $context = stream_context_create($opts);
+        $context = stream_context_create(['http' => [
+            'header'  => "User-Agent: WingMate/1.0\r\n",
+            'timeout' => 3,
+        ]]);
         $response = @file_get_contents($url, false, $context);
 
         $generalLocation = 'Unknown location';
