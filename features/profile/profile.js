@@ -210,6 +210,10 @@ function saveProfilePic() {
         return;
     }
 
+    const saveBtn = document.querySelector('#picModal .profile-btn-save');
+    if (saveBtn?.disabled) return;
+    if (saveBtn) saveBtn.disabled = true;
+
     const formData = new FormData();
     formData.append('action', 'upload_photo');
     formData.append('photo', selectedPicFile);
@@ -220,9 +224,8 @@ function saveProfilePic() {
             if (!res.ok) throw new Error('Server ' + res.status + ': ' + text.substring(0, 200));
             try { return JSON.parse(text); } catch { throw new Error('Invalid response: ' + text.substring(0, 200)); }
         }))
-                .then(data => {
+        .then(data => {
             if (data.success) {
-                // Add to beginning of photos array
                 currentPrimaryId = data.photo_id;
                 currentPrimaryUrl = data.photo_url;
                 const picModal = bootstrap.Modal.getInstance(document.getElementById('picModal'));
@@ -231,8 +234,10 @@ function saveProfilePic() {
                 alert('Upload failed: ' + (data.error || 'Unknown error'));
             }
         })
-
-        .catch(err => alert('Error: ' + err.message));
+        .catch(err => alert('Error: ' + err.message))
+        .finally(() => {
+            if (saveBtn) saveBtn.disabled = false;
+        });
 }
 
 function removeProfilePic() {
