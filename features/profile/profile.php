@@ -127,8 +127,8 @@ if ($isOwnProfile || $isFriend) {
 
 <link rel="stylesheet" href="profile.css">
 
-<div class="profile-page">
-    <div class="profile-container">
+<div class="profile-page bg-light min-vh-100 py-4">
+    <div class="container mx-auto">
         <?php if (!$isOwnProfile): ?>
             <div class="profile-back-button" style="margin-bottom: 15px;">
                 <a href="/features/friends/friends.php" class="btn btn-secondary">← Back to Friends</a>
@@ -139,35 +139,34 @@ if ($isOwnProfile || $isFriend) {
 
             <!-- Banner (top-left) -->
             <div class="col-12 col-md-6 col-lg-7">
-                <div class="profile-banner h-100">
+                <div class="profile-banner position-relative overflow-hidden h-100 rounded d-flex align-items-stretch">
                     <div class="profile-banner-bg"></div>
-
-                    <div class="profile-avatar-wrapper">
+                    <div class="profile-avatar-wrapper d-flex align-items-center p-3 flex-shrink-0 position-relative">
                         <?php if ($primaryPhoto): ?>
-                            <img class="profile-avatar" src="<?php echo $primaryPhoto['photo_url']; ?>" alt="Profile photo">
+                            <img class="profile-avatar rounded-circle object-fit-cover border border-white bg-white" src="<?php echo $primaryPhoto['photo_url']; ?>" alt="Profile photo">
                         <?php else: ?>
-                            <div class="profile-avatar-empty">👤</div>
+                            <div class="profile-avatar-empty rounded-circle d-flex align-items-center justify-content-center">👤</div>
                         <?php endif; ?>
                     </div>
 
-                    <div class="card profile-info-card">
+                    <div class="card profile-info-card position-relative flex-grow-1 m-3 m-md-4 p-4 rounded border-0 justify-content-center">
                         <h2 class="profile-name-age"><?php echo $displayName . $displayAge; ?></h2>
                         <p class="profile-location">
                             <span class="profile-location-icon">📍</span>
                             <?php echo $displayLocation ?: 'Location not set'; ?>
                         </p>
                         <?php if ($displayGender): ?>
-                            <div class="profile-gender">Gender: <?php echo $displayGender; ?></div>
+                            <div class="profile-bio text-muted mb-2">Gender: <?php echo $displayGender; ?></div>
                         <?php endif; ?>
-                        <p class="profile-bio" id="profileBio"><?php echo $userBio ?: 'No bio yet'; ?></p>
+                        <p class="profile-bio text-muted" id="profileBio"><?php echo $userBio ?: 'No bio yet'; ?></p>
                     </div>
                 </div>
             </div>
 
             <!-- Photo Carousel (top-right) -->
             <div class="col-12 col-md-6 col-lg-5">
-                <div class="profile-photos-card">
-                    <div id="profilePhotoCarousel" class="carousel slide profile-photo-carousel" data-bs-ride="false" data-bs-interval="false">
+                <div class="profile-photos-card rounded d-flex flex-column p-3 position-relative">
+                    <div id="profilePhotoCarousel" class="carousel slide profile-photo-carousel flex-grow-1 mh-0 rounded overflow-hidden position-relative" data-bs-ride="false" data-bs-interval="false">
                         <div class="carousel-indicators"></div>
                         <div class="carousel-inner"></div>
                         <button class="carousel-control-prev" type="button" data-bs-target="#profilePhotoCarousel" data-bs-slide="prev">
@@ -179,7 +178,7 @@ if ($isOwnProfile || $isFriend) {
                             <span class="visually-hidden">Next</span>
                         </button>
                     </div>
-                    <div class="profile-photo-empty">No Photos</div>
+                    <div class="profile-photo-empty d-none d-flex align-items-center justify-content-center flex-grow-1 rounded p-3">No Photos</div>
                 </div>
             </div>
 
@@ -393,6 +392,17 @@ if ($isOwnProfile || $isFriend) {
 
     document.addEventListener('DOMContentLoaded', function() {
         renderComments(initialComments, currentUserId);
+        
+        const carousel = document.getElementById('profilePhotoCarousel');
+        const emptyState = document.querySelector('.profile-photo-empty');
+        
+        if (userPhotos.length > 0) {
+            carousel.classList.remove('d-none');
+            emptyState.classList.add('d-none');
+        } else {
+            carousel.classList.add('d-none');
+            emptyState.classList.remove('d-none');
+        }
     });
 </script>
 <script src="profile.js"></script>
