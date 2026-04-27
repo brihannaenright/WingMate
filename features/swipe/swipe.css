@@ -19,6 +19,43 @@
     padding: 30px 40px 120px;
 }
 
+/* Collapsible Match Filters panel */
+.swipe-filters {
+    max-width: 1200px;
+    margin: 0 auto 24px;
+    background: var(--swipe-card-bg);
+    border-radius: var(--swipe-card-radius);
+    box-shadow: var(--swipe-card-shadow);
+    padding: 16px 24px;
+}
+
+.swipe-filters-summary {
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--swipe-pink);
+    list-style: none;
+    padding: 4px 0;
+}
+
+.swipe-filters-summary::-webkit-details-marker {
+    display: none;
+}
+
+.swipe-filters-summary::before {
+    content: '▸ ';
+    display: inline-block;
+    transition: transform var(--swipe-transition);
+}
+
+.swipe-filters[open] .swipe-filters-summary::before {
+    transform: rotate(90deg);
+}
+
+.swipe-filters-form {
+    margin-top: 16px;
+}
+
 /* Main 2-column grid layout for all swipe cards */
 .swipe-container {
     display: grid;
