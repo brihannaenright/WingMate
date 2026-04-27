@@ -221,15 +221,15 @@ if (!defined('CHAT_UI_INCLUDED')) {
 </div>
 
 <script>
-// Initialize modal once
+//Initialise confirmation modal instance
 let confirmationModal = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     const modalElement = document.getElementById('confirmationModal');
     if (modalElement) {
         confirmationModal = new bootstrap.Modal(modalElement, {
-            backdrop: 'static',
-            keyboard: false
+            backdrop: 'static', //Prevents closing by clicking outside
+            keyboard: false //Prevents closing with the keyboard
         });
     }
 });
@@ -342,18 +342,17 @@ const ChatManager = {
                     this.messagePoller = null;
                 }
             } else if (this.currentChatId) {
-                // Resume polling when tab becomes visible
+                // Load messages when returning to tab and restart polling
                 this.loadMessages();
                 this.messagePoller = setInterval(() => {
-                    if (!this.currentChatId) return;
-                    if (document.hidden) return;
+                    if (!this.currentChatId) return; //Safety check to ensure we don't poll without a chat loaded
                     this.loadMessages();
                 }, 8000);
             }
         });
     },
 
-    loadGroupChat: function(groupId, groupName, profilePictureUrl = null, onLoadComplete = null) {
+    loadGroupChat: function(groupId, groupName, onLoadComplete = null) {
         // Show loading state
         this.emptyState.classList.add('d-none');
         this.chatContent.classList.remove('d-none');
@@ -361,6 +360,8 @@ const ChatManager = {
         this.currentFriendId = null;
         this.currentMatchId = null;
         this.chatType = 'group';
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         document.getElementById('chatFriendName').textContent = 'Loading...';
         
@@ -377,11 +378,14 @@ const ChatManager = {
             this.messagePoller = null;
         }
 
-        fetch(`/features/chats/chat-api.php?action=get_group_chat&group_id=${groupId}`)
+        fetch(`/features/chats/chat-api.php?action=get_group_chat&group_id=${groupId}`, {
+            signal: controller.signal
+        })
             .then(response => response.json())
             .then(data => {
+                clearTimeout(timeoutId);
                 if (data.error) {
-                    messagesContainer.innerHTML = '<p>Error loading chat</p>';
+                    showToast(data.error || 'Error loading chat', 'error', 0);
                     if (onLoadComplete) onLoadComplete(false);
                     return;
                 }
@@ -396,18 +400,17 @@ const ChatManager = {
                 //POLLING (only when tab is active)
                 this.messagePoller = setInterval(() => {
                     if (!this.currentChatId) return;
-
-                    // Only poll if user is actively viewing the tab
-                    if (document.hidden) return;
-
                     this.loadMessages();
                 }, 8000);
 
                 if (onLoadComplete) onLoadComplete(true);
             })
             .catch(error => {
-                console.error('Error:', error);
-                messagesContainer.innerHTML = '<p>Error loading chat</p>';
+                clearTimeout(timeoutId);
+                if (error.name !== 'AbortError') {
+                    console.error('Error:', error);
+                    showToast('Error loading chat', 'error', 0);
+                }
                 if (onLoadComplete) onLoadComplete(false);
             });
     },
@@ -421,6 +424,8 @@ const ChatManager = {
         this.currentGroupId = null;
         this.chatType = matchId ? 'match' : 'direct';
         this.isCreator = false;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         document.getElementById('chatFriendName').textContent = 'Loading...';
         
@@ -441,11 +446,14 @@ const ChatManager = {
             this.messagePoller = null;
         }
 
-        fetch(`/features/chats/chat-api.php?action=get_chat_id&friend_id=${friendId}`)
+        fetch(`/features/chats/chat-api.php?action=get_chat_id&friend_id=${friendId}`, {
+            signal: controller.signal
+        })
             .then(response => response.json())
             .then(data => {
+                clearTimeout(timeoutId);
                 if (data.error) {
-                    messagesContainer.innerHTML = '<p>Error loading chat</p>';
+                    showToast(data.error || 'Error loading chat', 'error', 0);
                     if (onLoadComplete) onLoadComplete(false);
                     return;
                 }
@@ -463,18 +471,19 @@ const ChatManager = {
                 //POLLING (only when tab is active)
                 this.messagePoller = setInterval(() => {
                     if (!this.currentChatId) return;
-
                     // Only poll if user is actively viewing the tab
                     if (document.hidden) return;
-
                     this.loadMessages();
                 }, 8000);
 
                 if (onLoadComplete) onLoadComplete(true);
             })
             .catch(error => {
-                console.error('Error:', error);
-                messagesContainer.innerHTML = '<p>Error loading chat</p>';
+                clearTimeout(timeoutId);
+                if (error.name !== 'AbortError') {
+                    console.error('Error:', error);
+                    showToast('Error loading chat', 'error', 0);
+                }
                 if (onLoadComplete) onLoadComplete(false);
             });
     },
@@ -602,12 +611,17 @@ const ChatManager = {
         formData.append('chat_id', this.currentChatId);
         formData.append('content', content);
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
         fetch('/features/chats/chat-api.php', {
             method: 'POST',
-            body: formData
+            body: formData,
+            signal: controller.signal
         })
         .then(response => response.json())
         .then(data => {
+            clearTimeout(timeoutId);
             if (data.success) {
                 this.loadMessages();
             } else {
@@ -615,7 +629,11 @@ const ChatManager = {
             }
         })
         .catch(error => {
-            console.error('Error:', error);
+            clearTimeout(timeoutId);
+            if (error.name !== 'AbortError') {
+                console.error('Error:', error);
+                showToast('Error sending message', 'error');
+            }
         });
     },
 
@@ -655,18 +673,6 @@ const ChatManager = {
         modal.show();
     },
 
-    markMessageAsRead: function(messageId) {
-        const formData = new FormData();
-        formData.append('action', 'mark_message_read');
-        formData.append('message_id', messageId);
-
-        fetch('/features/chats/chat-api.php', {
-            method: 'POST',
-            body: formData
-        })
-        .catch(error => console.error('Error marking message as read:', error));
-    },
-
     markMessagesAsRead: function(messageIds) {
         if (messageIds.length === 0) return;
 
@@ -676,11 +682,22 @@ const ChatManager = {
             formData.append('action', 'mark_message_read');
             formData.append('message_id', messageId);
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout for background operation
+
             fetch('/features/chats/chat-api.php', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                signal: controller.signal
             })
-            .catch(error => console.error('Error marking message as read:', error));
+            .then(() => clearTimeout(timeoutId))
+            .catch(error => {
+                clearTimeout(timeoutId);
+                // Silently ignore timeout errors; log other errors to console only
+                if (error.name !== 'AbortError') {
+                    console.error('Error marking message as read:', error);
+                }
+            });
         });
     }
 };
@@ -816,12 +833,17 @@ document.addEventListener('DOMContentLoaded', function () {
             formData.append('message_id', ChatManager.selectedMessageId);
         }
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
         fetch('/features/chats/chat-api.php', {
             method: 'POST',
-            body: formData
+            body: formData,
+            signal: controller.signal
         })
         .then(res => res.json())
         .then(data => {
+            clearTimeout(timeoutId);
             if (data.success) {
                 // Show success message
                 showGeneralError('Report submitted successfully');
@@ -846,8 +868,11 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         })
         .catch(err => {
-            console.error(err);
-            showGeneralError('Error submitting report. Please try again.');
+            clearTimeout(timeoutId);
+            if (err.name !== 'AbortError') {
+                console.error(err);
+                showGeneralError('Error submitting report. Please try again.');
+            }
         });
     });
 
@@ -948,14 +973,19 @@ document.addEventListener('DOMContentLoaded', function () {
         formData.append('user_id', ChatManager.currentUserId);
         formData.append('friend_id', ChatManager.currentFriendId);
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
         fetch('/features/chats/chat-api.php', {
             method: 'POST',
-            body: formData
+            body: formData,
+            signal: controller.signal
         })
         .then(res => res.json())
         .then(data => {
+            clearTimeout(timeoutId);
             if (data.success) {
-                showSettingsMessage('Friend removed successfully', false);
+                showToast('Friend removed successfully', 'success');
                 setTimeout(() => {
                     const modal = bootstrap.Modal.getInstance(settingsModal);
                     modal.hide();
@@ -963,13 +993,16 @@ document.addEventListener('DOMContentLoaded', function () {
                     window.location.reload();
                 }, 1500);
             } else {
-                showSettingsMessage(data.error || 'Failed to remove friend', true);
+                showToast(data.error || 'Failed to remove friend', 'error', 0);
                 showSettingsLoading(false);
             }
         })
         .catch(err => {
-            console.error(err);
-            showSettingsMessage('Error removing friend', true);
+            clearTimeout(timeoutId);
+            if (err.name !== 'AbortError') {
+                console.error(err);
+                showToast('Error removing friend', 'error', 0);
+            }
             showSettingsLoading(false);
         });
     });
@@ -994,7 +1027,7 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                showSettingsMessage('Match removed successfully', false);
+                showToast('Match removed successfully', 'success');
                 setTimeout(() => {
                     const modal = bootstrap.Modal.getInstance(settingsModal);
                     modal.hide();
@@ -1002,13 +1035,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     window.location.reload();
                 }, 1500);
             } else {
-                showSettingsMessage(data.error || 'Failed to unmatch', true);
+                showToast(data.error || 'Failed to unmatch', 'error', 0);
                 showSettingsLoading(false);
             }
         })
         .catch(err => {
             console.error(err);
-            showSettingsMessage('Error unmatching', true);
+            showToast('Error unmatching', 'error', 0);
             showSettingsLoading(false);
         });
     });
@@ -1027,14 +1060,19 @@ document.addEventListener('DOMContentLoaded', function () {
         formData.append('user_id', ChatManager.currentUserId);
         formData.append('blocked_id', ChatManager.currentFriendId);
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
         fetch('/features/chats/chat-api.php', {
             method: 'POST',
-            body: formData
+            body: formData,
+            signal: controller.signal
         })
         .then(res => res.json())
         .then(data => {
+            clearTimeout(timeoutId);
             if (data.success) {
-                showSettingsMessage('User blocked successfully', false);
+                showToast('User blocked successfully', 'success');
                 setTimeout(() => {
                     const modal = bootstrap.Modal.getInstance(settingsModal);
                     modal.hide();
@@ -1042,13 +1080,16 @@ document.addEventListener('DOMContentLoaded', function () {
                     window.location.reload();
                 }, 1500);
             } else {
-                showSettingsMessage(data.error || 'Failed to block user', true);
+                showToast(data.error || 'Failed to block user', 'error', 0);
                 showSettingsLoading(false);
             }
         })
         .catch(err => {
-            console.error(err);
-            showSettingsMessage('Error blocking user', true);
+            clearTimeout(timeoutId);
+            if (err.name !== 'AbortError') {
+                console.error(err);
+                showToast('Error blocking user', 'error', 0);
+            }
             showSettingsLoading(false);
         });
     });
@@ -1067,27 +1108,35 @@ document.addEventListener('DOMContentLoaded', function () {
             formData.append('action', 'leave_group');
             formData.append('group_id', ChatManager.currentGroupId);
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
             fetch('/features/chats/chat-api.php', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                signal: controller.signal
             })
             .then(res => res.json())
             .then(data => {
+                clearTimeout(timeoutId);
                 if (data.success) {
-                    showSettingsMessage('Left group successfully', false);
+                    showToast('Left group successfully', 'success');
                     setTimeout(() => {
                         const modal = bootstrap.Modal.getInstance(settingsModal);
                         modal.hide();
                         window.location.reload();
                     }, 1500);
                 } else {
-                    showSettingsMessage(data.error || 'Failed to leave group', true);
+                    showToast(data.error || 'Failed to leave group', 'error', 0);
                     showSettingsLoading(false);
                 }
             })
             .catch(err => {
-                console.error(err);
-                showSettingsMessage('Error leaving group', true);
+                clearTimeout(timeoutId);
+                if (err.name !== 'AbortError') {
+                    console.error(err);
+                    showToast('Error leaving group', 'error', 0);
+                }
                 showSettingsLoading(false);
             });
         });
@@ -1107,9 +1156,13 @@ document.addEventListener('DOMContentLoaded', function () {
             formData.append('action', 'delete_group');
             formData.append('group_id', ChatManager.currentGroupId);
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
             fetch('/features/chats/chat-api.php', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                signal: controller.signal
             })
             .then(res => {
                 if (!res.ok) {
@@ -1118,9 +1171,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 return res.json();
             })
             .then(data => {
+                clearTimeout(timeoutId);
                 console.log('Delete group response:', data);
                 if (data.success) {
-                    showSettingsMessage('Group deleted successfully', false);
+                    showToast('Group deleted successfully', 'success');
                     setTimeout(() => {
                         const modal = bootstrap.Modal.getInstance(settingsModal);
                         if (modal) {
@@ -1129,13 +1183,16 @@ document.addEventListener('DOMContentLoaded', function () {
                         window.location.reload();
                     }, 1500);
                 } else {
-                    showSettingsMessage(data.error || 'Failed to delete group', true);
+                    showToast(data.error || 'Failed to delete group', 'error', 0);
                     showSettingsLoading(false);
                 }
             })
             .catch(err => {
-                console.error('Error deleting group:', err);
-                showSettingsMessage('Error: ' + err.message, true);
+                clearTimeout(timeoutId);
+                if (err.name !== 'AbortError') {
+                    console.error('Error deleting group:', err);
+                    showToast('Error: ' + err.message, 'error', 0);
+                }
                 showSettingsLoading(false);
             });
         });
@@ -1162,9 +1219,15 @@ document.addEventListener('DOMContentLoaded', function () {
         kickMembersContainer.innerHTML = '';
         kickError.classList.add('d-none');
 
-        fetch(`/features/chats/chat-api.php?action=get_group_members&group_id=${ChatManager.currentGroupId}`)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+        fetch(`/features/chats/chat-api.php?action=get_group_members&group_id=${ChatManager.currentGroupId}`, {
+            signal: controller.signal
+        })
             .then(res => res.json())
             .then(data => {
+                clearTimeout(timeoutId);
                 kickLoading.classList.add('d-none');
 
                 if (data.error) {
@@ -1195,10 +1258,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
             })
             .catch(err => {
-                console.error(err);
+                clearTimeout(timeoutId);
+                if (err.name !== 'AbortError') {
+                    console.error(err);
+                    kickError.textContent = 'Error loading members';
+                    kickError.classList.remove('d-none');
+                }
                 kickLoading.classList.add('d-none');
-                kickError.textContent = 'Error loading members';
-                kickError.classList.remove('d-none');
             });
 
         kickModal.show();
@@ -1224,10 +1290,22 @@ document.addEventListener('DOMContentLoaded', function () {
                 formData.append('group_id', ChatManager.currentGroupId);
                 formData.append('member_id', memberId);
 
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
                 return fetch('/features/chats/chat-api.php', {
                     method: 'POST',
-                    body: formData
-                }).then(res => res.json());
+                    body: formData,
+                    signal: controller.signal
+                })
+                .then(res => res.json())
+                .catch(err => {
+                    if (err.name !== 'AbortError') {
+                        throw err;
+                    }
+                    return { success: false, error: 'Request timeout' };
+                })
+                .finally(() => clearTimeout(timeoutId));
             }))
             .then(results => {
                 const hasError = results.some(r => !r.success);
