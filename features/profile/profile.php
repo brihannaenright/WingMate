@@ -18,7 +18,6 @@ $isFriend = false;
 
 // If viewing another user's profile, verify they exist and check friendship
 if (!$isOwnProfile) {
-    // Verify user exists and is not an administrator
     $stmt = $conn->prepare("SELECT user_id FROM Users WHERE user_id = ? AND account_status = 'active' AND user_type != 'administrator'");
     $stmt->bind_param('i', $profile_user_id);
     $stmt->execute();
@@ -29,12 +28,11 @@ if (!$isOwnProfile) {
     }
     $stmt->close();
 
-    // Check friendship status
     $stmt = $conn->prepare("
-        SELECT 1 FROM Friendship 
+        SELECT 1 FROM Friendship
         WHERE status = 'accepted'
         AND (
-            (user_id = ? AND friend_id = ?) OR 
+            (user_id = ? AND friend_id = ?) OR
             (user_id = ? AND friend_id = ?)
         )
         LIMIT 1
@@ -52,21 +50,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isOwnProfile) {
     if ($action === 'update_tags') {
         header('Content-Type: application/json');
         $tagIds = json_decode($_POST['tag_ids'] ?? '[]', true);
-        $selectionType = $_POST['selection_type'] ?? '';
 
-        // Looking_for tags are managed from the settings page; profile only handles about_me
-        if ($selectionType !== 'about_me') {
-            echo json_encode(['success' => false, 'error' => 'Invalid selection type']);
-            exit;
-        }
+        // Profile only handles about_me tags (looking_for tags are managed from settings)
+        $selectionType = 'about_me';
 
-        // Remove existing tags for this user and selection type
+        // Remove existing about_me tags for this user
         $stmt = $conn->prepare("DELETE FROM User_Tags WHERE user_id = ? AND selection_type = ?");
         $stmt->bind_param('is', $current_user_id, $selectionType);
         $stmt->execute();
         $stmt->close();
 
-        // Insert new selections
+        // Insert new about_me tag selections
         if (!empty($tagIds)) {
             $stmt = $conn->prepare("INSERT INTO User_Tags (user_id, tag_id, selection_type) VALUES (?, ?, ?)");
             foreach ($tagIds as $tagId) {
@@ -233,7 +227,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isOwnProfile) {
 }
 
 // Fetch profile data from DB
-$stmt = $conn->prepare("SELECT first_name, last_name, date_of_birth, gender, general_location, latitude, longitude, user_bio FROM User_Profile WHERE user_id = ?");
+$stmt = $conn->prepare("SELECT first_name, last_name, date_of_birth, gender, general_location, user_bio FROM User_Profile WHERE user_id = ?");
 $stmt->bind_param('i', $profile_user_id);
 $stmt->execute();
 $profile = $stmt->get_result()->fetch_assoc();
@@ -251,10 +245,7 @@ $lastName = htmlspecialchars($profile['last_name'] ?? '');
 $displayName = trim("$firstName $lastName") ?: 'New User';
 $displayAge = $age ? ", $age" : '';
 $displayLocation = htmlspecialchars($profile['general_location'] ?? '');
-$userLat = $profile['latitude'] ?? '';
-$userLng = $profile['longitude'] ?? '';
 $userBio = htmlspecialchars($profile['user_bio'] ?? '');
-$userGender = $profile['gender'] ?? '';
 
 // Fetch all tags
 $allTags = [];
@@ -263,24 +254,18 @@ while ($row = $result->fetch_assoc()) {
     $allTags[] = $row;
 }
 
-// Fetch user's selected tags split by selection_type
+// Fetch user's "about_me" tags
 $aboutMeTagIds = [];
-$lookingForTagIds = [];
-$stmt = $conn->prepare("SELECT tag_id, selection_type FROM User_Tags WHERE user_id = ?");
+$stmt = $conn->prepare("SELECT tag_id FROM User_Tags WHERE user_id = ? AND selection_type = 'about_me'");
 $stmt->bind_param('i', $profile_user_id);
 $stmt->execute();
 $result = $stmt->get_result();
 while ($row = $result->fetch_assoc()) {
-    if ($row['selection_type'] === 'about_me') {
-        $aboutMeTagIds[] = (int)$row['tag_id'];
-    } elseif ($row['selection_type'] === 'looking_for') {
-        $lookingForTagIds[] = (int)$row['tag_id'];
-    }
+    $aboutMeTagIds[] = (int)$row['tag_id'];
 }
 $stmt->close();
 
 $userAboutMeTags = array_filter($allTags, fn($t) => in_array((int)$t['tag_id'], $aboutMeTagIds));
-$userLookingForTags = array_filter($allTags, fn($t) => in_array((int)$t['tag_id'], $lookingForTagIds));
 
 // Fetch user's photos
 $userPhotos = [];
@@ -303,7 +288,7 @@ $stmt->close();
 $comments = [];
 if ($isOwnProfile || $isFriend) {
     $stmt = $conn->prepare("
-        SELECT 
+        SELECT
             fc.comment_id,
             fc.profile_owner_id,
             fc.commenter_id,
@@ -329,11 +314,7 @@ if ($isOwnProfile || $isFriend) {
 
 <?php include __DIR__ . '/../../includes/nav-header.php'; ?>
 
-<!-- Link the profile-specific CSS -->
 <link rel="stylesheet" href="profile.css">
-<!-- Leaflet map library -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <div class="profile-page">
     <div class="profile-container">
@@ -346,7 +327,7 @@ if ($isOwnProfile || $isFriend) {
         <!-- Top-Left Card: Pink Banner with Avatar + Profile Info -->
         <div class="profile-banner">
             <div class="profile-banner-bg"></div>
-            
+
             <div class="profile-avatar-wrapper">
                 <?php if ($primaryPhoto): ?>
                     <img class="profile-avatar" src="<?php echo $primaryPhoto['photo_url']; ?>" alt="Profile photo">
@@ -361,13 +342,6 @@ if ($isOwnProfile || $isFriend) {
                     <span class="profile-location-icon">📍</span>
                     <?php echo $displayLocation ?: 'Location not set'; ?>
                 </p>
-                <?php
-                $genderLabels = ['male' => 'Male', 'female' => 'Female', 'non-binary' => 'Non-binary'];
-                $genderLabel = $genderLabels[$userGender] ?? '';
-                ?>
-                <div class="profile-gender" id="profileGender" style="<?php echo $genderLabel === '' ? 'display:none;' : ''; ?>">
-                    Gender: <?php echo htmlspecialchars($genderLabel); ?>
-                </div>
                 <p class="profile-bio" id="profileBio"><?php echo $userBio ?: 'No bio yet'; ?></p>
             </div>
         </div>
@@ -388,9 +362,7 @@ if ($isOwnProfile || $isFriend) {
             <div class="profile-photo-nav">
                 <button class="profile-photo-arrow" onclick="prevPhoto()">❮</button>
                 <button class="profile-photo-arrow" onclick="nextPhoto()">❯</button>
-            </div>
-
-            
+            </div>   
         </div>
 
         <!-- Bottom-Left Card: Tags Sidebar + Friends Comments -->
@@ -408,7 +380,7 @@ if ($isOwnProfile || $isFriend) {
             <!-- What My Friends Say Comments Card -->
             <div class="profile-friends-card">
                 <h3 class="profile-friends-title">What My Friends Say</h3>
-                
+
                 <?php if (!$isOwnProfile && $isFriend): ?>
                     <!-- Comment Input Form for Friends -->
                     <div class="friends-comments-section">
@@ -421,27 +393,13 @@ if ($isOwnProfile || $isFriend) {
                     </div>
                     <hr style="margin: 20px 0; opacity: 0.2;">
                 <?php endif; ?>
-                
+
                 <div id="commentsListContainer" class="comments-list">
                     <!-- Populated by JS -->
                 </div>
             </div>
         </div>
-
-        <!-- Bottom-Right Card: Looking For - read-only, edit in Settings -->
-        <div class="profile-looking-card" id="profileLookingForPills">
-            <h3 class="profile-looking-title">Looking For</h3>
-            <div class="profile-looking-pills" id="lookingForPills">
-                <?php if (empty($userLookingForTags)): ?>
-                    <span class="profile-looking-empty">Edit in <a href="/features/settings/settings.php">Settings</a></span>
-                <?php else: ?>
-                    <?php foreach ($userLookingForTags as $tag): ?>
-                        <span class="profile-looking-pill"><?php echo htmlspecialchars($tag['tag_name']); ?></span>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </div>
-        </div>
-    </div>
+    </div>    
 
     <!-- Bio/Location Edit Modal -->
     <div class="modal fade" id="bioModal" tabindex="-1" aria-labelledby="bioModalLabel" aria-hidden="true">
@@ -576,13 +534,11 @@ if ($isOwnProfile || $isFriend) {
             </div>
         </div>
     </div>
-
 </div>
 
 <script>
     const allTags = <?php echo json_encode($allTags); ?>;
     const aboutMeTagIds = <?php echo json_encode(array_values($aboutMeTagIds)); ?>;
-    const lookingForTagIds = <?php echo json_encode(array_values($lookingForTagIds)); ?>;
     
         // Carousel photos 
     const userPhotos = <?php echo json_encode(array_values($userPhotos)); ?>;
@@ -592,12 +548,11 @@ if ($isOwnProfile || $isFriend) {
     const primaryPhotoId = <?php echo json_encode($primaryPhoto ? (int)$primaryPhoto['photo_id'] : null); ?>;
     const currentUserId = <?php echo json_encode($current_user_id); ?>;
     const profileUserId = <?php echo json_encode($profile_user_id); ?>;
-    const isOwnProfile = <?php echo json_encode($isOwnProfile); ?>;
     const initialComments = <?php echo json_encode($comments); ?>;
 
     // --- Comment Management ---
     const commentsListContainer = document.getElementById('commentsListContainer');
-    
+
     function renderComments(comments, userId) {
         if (comments.length === 0) {
             commentsListContainer.innerHTML = '<p class="text-muted text-center py-3">No comments yet</p>';
@@ -614,7 +569,7 @@ if ($isOwnProfile || $isFriend) {
                 <div class="comment-item" data-comment-id="${comment.comment_id}">
                     <div class="comment-header">
                         <div class="comment-author">
-                            ${photoUrl ? 
+                            ${photoUrl ?
                                 `<img src="${photoUrl}" alt="${comment.first_name}" class="comment-avatar">` :
                                 '<div class="comment-avatar-placeholder">👤</div>'
                             }
@@ -649,18 +604,17 @@ if ($isOwnProfile || $isFriend) {
     }
 
     function attachCommentEventListeners() {
-        // Edit button
         document.querySelectorAll('.edit-comment-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const commentItem = this.closest('.comment-item');
                 const commentId = commentItem.dataset.commentId;
                 const editForm = document.getElementById(`editForm${commentId}`);
                 const commentText = document.getElementById(`commentText${commentId}`);
-                
+
                 editForm.classList.remove('d-none');
                 commentText.style.display = 'none';
                 this.closest('.comment-actions').style.display = 'none';
-                
+
                 const textarea = document.getElementById(`editTextarea${commentId}`);
                 textarea.focus();
                 textarea.addEventListener('input', function() {
@@ -669,21 +623,19 @@ if ($isOwnProfile || $isFriend) {
             });
         });
 
-        // Cancel edit
         document.querySelectorAll('.cancel-edit-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const editForm = this.closest('.comment-edit-form');
                 const commentItem = editForm.closest('.comment-item');
                 const commentId = commentItem.dataset.commentId;
                 const commentText = document.getElementById(`commentText${commentId}`);
-                
+
                 editForm.classList.add('d-none');
                 commentText.style.display = '';
                 commentItem.querySelector('.comment-actions').style.display = '';
             });
         });
 
-        // Save edit
         document.querySelectorAll('.save-comment-btn').forEach(btn => {
             btn.addEventListener('click', async function() {
                 const commentId = this.dataset.commentId;
@@ -701,21 +653,16 @@ if ($isOwnProfile || $isFriend) {
 
                     const response = await fetch('/features/profile/comments-api.php?action=edit_comment', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                         body: `comment_id=${commentId}&comment_text=${encodeURIComponent(newText)}`
                     });
 
                     const data = await response.json();
 
                     if (data.success) {
-                        // Reload comments from API
                         const response2 = await fetch(`/features/profile/comments-api.php?action=get_comments&profile_owner_id=${profileUserId}`);
                         const data2 = await response2.json();
-                        if (data2.success) {
-                            renderComments(data2.comments, currentUserId);
-                        }
+                        if (data2.success) renderComments(data2.comments, currentUserId);
                     } else {
                         alert(data.error || 'Failed to update comment');
                     }
@@ -729,12 +676,9 @@ if ($isOwnProfile || $isFriend) {
             });
         });
 
-        // Delete button
         document.querySelectorAll('.delete-comment-btn').forEach(btn => {
             btn.addEventListener('click', async function() {
-                if (!confirm('Are you sure you want to delete this comment?')) {
-                    return;
-                }
+                if (!confirm('Are you sure you want to delete this comment?')) return;
 
                 const commentItem = this.closest('.comment-item');
                 const commentId = commentItem.dataset.commentId;
@@ -742,21 +686,16 @@ if ($isOwnProfile || $isFriend) {
                 try {
                     const response = await fetch('/features/profile/comments-api.php?action=delete_comment', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                         body: `comment_id=${commentId}`
                     });
 
                     const data = await response.json();
 
                     if (data.success) {
-                        // Reload comments from API
                         const response2 = await fetch(`/features/profile/comments-api.php?action=get_comments&profile_owner_id=${profileUserId}`);
                         const data2 = await response2.json();
-                        if (data2.success) {
-                            renderComments(data2.comments, currentUserId);
-                        }
+                        if (data2.success) renderComments(data2.comments, currentUserId);
                     } else {
                         alert(data.error || 'Failed to delete comment');
                     }
@@ -768,7 +707,6 @@ if ($isOwnProfile || $isFriend) {
         });
     }
 
-    // Initialize comments on page load
     document.addEventListener('DOMContentLoaded', function() {
         renderComments(initialComments, currentUserId);
     });

@@ -121,6 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Content-Type: application/json');
         $bio = trim($_POST['bio'] ?? '');
         $gender = $_POST['gender'] ?? '';
+        $relationship = $_POST['relationship_type'] ?? '';
         if (strlen($bio) > 500) {
             echo json_encode(['success' => false, 'error' => 'Bio too long']);
             exit;
@@ -130,11 +131,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['success' => false, 'error' => 'Invalid gender']);
             exit;
         }
+        $allowedRelationships = ['short_term', 'long_term', 'fun', ''];
+        if (!in_array($relationship, $allowedRelationships, true)) {
+            echo json_encode(['success' => false, 'error' => 'Invalid relationship type']);
+            exit;
+        }
         $genderToSave = $gender === '' ? null : $gender;
+        $relationshipToSave = $relationship === '' ? null : $relationship;
+
         $stmt = $conn->prepare("UPDATE User_Profile SET user_bio = ?, gender = ? WHERE user_id = ?");
         $stmt->bind_param('ssi', $bio, $genderToSave, $current_user_id);
         $stmt->execute();
         $stmt->close();
+
+        // Relationship type lives in User_Preferences; UPSERT so first-time setters get a row
+        $stmt = $conn->prepare("SELECT preference_id FROM User_Preferences WHERE user_id = ?");
+        $stmt->bind_param('i', $current_user_id);
+        $stmt->execute();
+        $hasPrefs = $stmt->get_result()->num_rows > 0;
+        $stmt->close();
+        if ($hasPrefs) {
+            $stmt = $conn->prepare("UPDATE User_Preferences SET relationship_type = ? WHERE user_id = ?");
+            $stmt->bind_param('si', $relationshipToSave, $current_user_id);
+        } else {
+            $stmt = $conn->prepare("INSERT INTO User_Preferences (user_id, relationship_type) VALUES (?, ?)");
+            $stmt->bind_param('is', $current_user_id, $relationshipToSave);
+        }
+        $stmt->execute();
+        $stmt->close();
+
         echo json_encode(['success' => true]);
         exit;
     }
@@ -184,6 +209,137 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['success' => true, 'general_location' => $generalLocation]);
         exit;
     }
+
+    if ($action === 'delete_account') {
+        // Hard delete: remove all rows referencing this user across every table, in
+        // child-first order so FK constraints don't fire. Wrapped in a transaction so a
+        // mid-flight failure doesn't leave a half-deleted account.
+        header('Content-Type: application/json');
+
+        // Require password re-entry: a logged-in session alone shouldn't be enough to wipe an account
+        $submittedPassword = (string) ($_POST['password'] ?? '');
+        $stmt = $conn->prepare("SELECT password_hash FROM Users WHERE user_id = ?");
+        $stmt->bind_param('i', $current_user_id);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$row || !password_verify($submittedPassword, $row['password_hash'])) {
+            echo json_encode(['success' => false, 'error' => 'Incorrect password']);
+            exit;
+        }
+
+        // 1. Unlink photo files from disk before deleting DB rows
+        $stmt = $conn->prepare("SELECT photo_url FROM User_Pictures WHERE user_id = ?");
+        $stmt->bind_param('i', $current_user_id);
+        $stmt->execute();
+        $photos = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+        foreach ($photos as $photo) {
+            $filePath = __DIR__ . '/../../Uploads/' . $photo['photo_url'];
+            if (file_exists($filePath)) {
+                @unlink($filePath);
+            }
+        }
+
+        // 2. Wipe all DB rows referencing this user, children-first
+        $conn->begin_transaction();
+        try {
+            // Friend_Votes: votes this user cast, plus votes on requests they were part of
+            $stmt = $conn->prepare("DELETE FROM Friend_Votes WHERE friend_voter_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM Friend_Votes WHERE request_id IN (SELECT request_id FROM Match_Requests WHERE match_owner_id = ? OR matched_user_id = ?)");
+            $stmt->bind_param('ii', $current_user_id, $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            // Decision rows tied to this user's match requests
+            $stmt = $conn->prepare("DELETE FROM Decision WHERE match_request_id IN (SELECT request_id FROM Match_Requests WHERE match_owner_id = ? OR matched_user_id = ?)");
+            $stmt->bind_param('ii', $current_user_id, $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM Match_Requests WHERE match_owner_id = ? OR matched_user_id = ?");
+            $stmt->bind_param('ii', $current_user_id, $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM Matches WHERE user1_id = ? OR user2_id = ?");
+            $stmt->bind_param('ii', $current_user_id, $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM User_Swipe WHERE liker_id = ? OR liked_id = ?");
+            $stmt->bind_param('ii', $current_user_id, $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM Friendship WHERE user_id = ? OR friend_id = ?");
+            $stmt->bind_param('ii', $current_user_id, $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM Notifications WHERE recipient_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM Friend_Comments WHERE commenter_id = ? OR profile_owner_id = ?");
+            $stmt->bind_param('ii', $current_user_id, $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            // Message_Receipts: receipts the user owns, plus receipts on messages they sent
+            $stmt = $conn->prepare("DELETE FROM Message_Receipts WHERE receiver_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM Message_Receipts WHERE message_id IN (SELECT message_id FROM Messages WHERE sender_id = ?)");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM Messages WHERE sender_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            // User leaves all chats (orphaned chats stay; cleanup is admin's call)
+            $stmt = $conn->prepare("DELETE FROM Chat_Members WHERE user_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM User_Reports WHERE reporter_id = ? OR reported_id = ?");
+            $stmt->bind_param('ii', $current_user_id, $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM User_Blocks WHERE blocker_id = ? OR blocked_id = ?");
+            $stmt->bind_param('ii', $current_user_id, $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM Password_Resets WHERE user_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM User_Tags WHERE user_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM User_Preferences WHERE user_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM User_Pictures WHERE user_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM User_Profile WHERE user_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM Users WHERE user_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $conn->commit();
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            $conn->rollback();
+            echo json_encode(['success' => false, 'error' => 'Deletion failed']);
+        }
+        exit;
+    }
 }
 
 // Fetch profile data
@@ -198,6 +354,16 @@ $userLat = $profile['latitude'] ?? '';
 $userLng = $profile['longitude'] ?? '';
 $userBio = $profile['user_bio'] ?? '';
 $userGender = $profile['gender'] ?? '';
+
+// Fetch relationship_type from User_Preferences (moved from swipe filters)
+$stmt = $conn->prepare("SELECT relationship_type FROM User_Preferences WHERE user_id = ?");
+$stmt->bind_param('i', $current_user_id);
+$stmt->execute();
+$prefsRow = $stmt->get_result()->fetch_assoc();
+$stmt->close();
+$userRelationship = $prefsRow['relationship_type'] ?? '';
+
+$RELATIONSHIP_LABELS = ['short_term' => 'Short term', 'long_term' => 'Long term', 'fun' => 'Looking for fun'];
 
 // Fetch all tags + user's about_me selections
 $allTags = [];
@@ -284,6 +450,7 @@ include __DIR__ . '/../../includes/nav-header.php';
                 <div class="settings-field-label">About You</div>
                 <p class="settings-field-row"><strong>Location:</strong> <span id="locationDisplay"><?php echo htmlspecialchars($displayLocation ?: 'Not set'); ?></span></p>
                 <p class="settings-field-row"><strong>Gender:</strong> <span id="genderDisplay"><?php echo htmlspecialchars($userGender ? ucfirst($userGender) : 'Not set'); ?></span></p>
+                <p class="settings-field-row"><strong>Relationship Type:</strong> <span id="relationshipDisplay"><?php echo htmlspecialchars($RELATIONSHIP_LABELS[$userRelationship] ?? 'Not set'); ?></span></p>
                 <p class="settings-field-row"><strong>Bio:</strong> <span id="bioDisplay"><?php echo htmlspecialchars($userBio ?: 'Not set'); ?></span></p>
             </div>
             <button type="button" class="btn profile-btn-upload" onclick="openBioModal()">Edit</button>
@@ -305,6 +472,39 @@ include __DIR__ . '/../../includes/nav-header.php';
                 </div>
             </div>
             <button type="button" class="btn profile-btn-upload" onclick="openTagPickerModal()">Edit</button>
+        </div>
+
+        <!-- Delete Account: irreversible self-serve action -->
+        <div class="settings-section">
+            <div class="settings-section-body">
+                <div class="settings-field-label">Delete Account</div>
+                <p class="settings-field-row">Permanently disable your account. You won't be able to log back in.</p>
+            </div>
+            <button type="button" class="btn profile-btn-remove" onclick="openDeleteAccountModal()">Delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Account Confirmation Modal -->
+<div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content profile-modal-content">
+            <div class="modal-header profile-modal-header">
+                <h5 class="modal-title">Delete Account</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete your account? This action cannot be undone and you will not be able to log back in.</p>
+                <div class="mb-2">
+                    <label for="deleteAccountPassword" class="form-label profile-modal-label">Confirm your password</label>
+                    <input type="password" class="form-control profile-modal-input" id="deleteAccountPassword" autocomplete="current-password">
+                    <div id="deleteAccountError" class="form-text text-danger" style="display:none;"></div>
+                </div>
+            </div>
+            <div class="modal-footer profile-modal-footer">
+                <button type="button" class="btn profile-btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn profile-btn-remove" onclick="deleteAccount()">Delete My Account</button>
+            </div>
         </div>
     </div>
 </div>
@@ -334,6 +534,15 @@ include __DIR__ . '/../../includes/nav-header.php';
                         <option value="male" <?php echo $userGender === 'male' ? 'selected' : ''; ?>>Male</option>
                         <option value="female" <?php echo $userGender === 'female' ? 'selected' : ''; ?>>Female</option>
                         <option value="non-binary" <?php echo $userGender === 'non-binary' ? 'selected' : ''; ?>>Non-binary</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="editRelationship" class="form-label profile-modal-label">Relationship Type</label>
+                    <select class="form-control profile-modal-input" id="editRelationship">
+                        <option value="">Select</option>
+                        <option value="short_term" <?php echo $userRelationship === 'short_term' ? 'selected' : ''; ?>>Short term</option>
+                        <option value="long_term" <?php echo $userRelationship === 'long_term' ? 'selected' : ''; ?>>Long term</option>
+                        <option value="fun" <?php echo $userRelationship === 'fun' ? 'selected' : ''; ?>>Looking for fun</option>
                     </select>
                 </div>
                 <div class="mb-3">
@@ -452,14 +661,17 @@ include __DIR__ . '/../../includes/nav-header.php';
     let currentBio = <?php echo json_encode($userBio); ?>;
     let currentGender = <?php echo json_encode($userGender); ?>;
     let currentLocation = <?php echo json_encode($displayLocation); ?>;
+    let currentRelationship = <?php echo json_encode($userRelationship); ?>;
 
     const GENDER_LABELS = { male: 'Male', female: 'Female', 'non-binary': 'Non-binary' };
+    const RELATIONSHIP_LABELS = { short_term: 'Short term', long_term: 'Long term', fun: 'Looking for fun' };
 
-    // --- Bio / Location / Gender modal ---
+    // --- Bio / Location / Gender / Relationship modal ---
     function openBioModal() {
         document.getElementById('editBio').value = currentBio;
         document.getElementById('editLocation').value = currentLocation;
         document.getElementById('editGender').value = currentGender;
+        document.getElementById('editRelationship').value = currentRelationship;
         document.getElementById('bioCharCount').textContent = currentBio.length;
         new bootstrap.Modal(document.getElementById('bioModal')).show();
     }
@@ -471,11 +683,13 @@ include __DIR__ . '/../../includes/nav-header.php';
     function saveBio() {
         const newBio = document.getElementById('editBio').value.trim();
         const newGender = document.getElementById('editGender').value;
+        const newRelationship = document.getElementById('editRelationship').value;
 
         const formData = new FormData();
         formData.append('action', 'update_bio');
         formData.append('bio', newBio);
         formData.append('gender', newGender);
+        formData.append('relationship_type', newRelationship);
 
         fetch(window.location.pathname, { method: 'POST', body: formData })
             .then(res => res.json())
@@ -483,8 +697,10 @@ include __DIR__ . '/../../includes/nav-header.php';
                 if (data.success) {
                     currentBio = newBio;
                     currentGender = newGender;
+                    currentRelationship = newRelationship;
                     document.getElementById('bioDisplay').textContent = newBio || 'Not set';
                     document.getElementById('genderDisplay').textContent = GENDER_LABELS[newGender] || 'Not set';
+                    document.getElementById('relationshipDisplay').textContent = RELATIONSHIP_LABELS[newRelationship] || 'Not set';
                     bootstrap.Modal.getInstance(document.getElementById('bioModal')).hide();
                 } else {
                     alert('Failed to save: ' + (data.error || 'Unknown error'));
@@ -819,6 +1035,50 @@ include __DIR__ . '/../../includes/nav-header.php';
             .finally(() => {
                 btn.disabled = false;
                 btn.textContent = 'Confirm Location';
+            });
+    }
+
+    // --- Delete account ---
+    function openDeleteAccountModal() {
+        document.getElementById('deleteAccountPassword').value = '';
+        document.getElementById('deleteAccountError').style.display = 'none';
+        new bootstrap.Modal(document.getElementById('deleteAccountModal')).show();
+    }
+
+    function deleteAccount() {
+        const passwordInput = document.getElementById('deleteAccountPassword');
+        const errorEl = document.getElementById('deleteAccountError');
+        const password = passwordInput.value;
+        if (!password) {
+            errorEl.textContent = 'Please enter your password.';
+            errorEl.style.display = '';
+            return;
+        }
+
+        const btn = document.querySelector('#deleteAccountModal .profile-btn-remove');
+        if (btn?.disabled) return;
+        if (btn) { btn.disabled = true; btn.textContent = 'Deleting...'; }
+        errorEl.style.display = 'none';
+
+        const formData = new FormData();
+        formData.append('action', 'delete_account');
+        formData.append('password', password);
+
+        fetch(window.location.pathname, { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = '/features/auth/logout.php';
+                } else {
+                    errorEl.textContent = data.error || 'Failed to delete';
+                    errorEl.style.display = '';
+                    if (btn) { btn.disabled = false; btn.textContent = 'Delete My Account'; }
+                }
+            })
+            .catch(err => {
+                errorEl.textContent = 'Error: ' + err.message;
+                errorEl.style.display = '';
+                if (btn) { btn.disabled = false; btn.textContent = 'Delete My Account'; }
             });
     }
 </script>

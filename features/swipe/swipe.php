@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../includes/session.php';
 require_once __DIR__ . '/../../config/config.php';
 
+
 wingmate_start_secure_session();
 
 $current_user_id = $_SESSION['user_id'] ?? null;
@@ -61,17 +62,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt->close();
                 }
 
-                $stmt = $conn->prepare("INSERT INTO Match_Requests (match_id, match_owner_id, matched_user_id, status, created_at) VALUES (?, ?, ?, 'pending', NOW())");
-                $stmt->bind_param('iii', $matchId, $current_user_id, $likedId);
-                $stmt->execute();
-                $request1Id = $stmt->insert_id;
-                $stmt->close();
+                // Only create Match_Requests if they don't already exist
+$stmt = $conn->prepare("SELECT request_id FROM Match_Requests WHERE match_id = ? AND match_owner_id = ?");
+$stmt->bind_param('ii', $matchId, $current_user_id);
+$stmt->execute();
+$existing1 = $stmt->get_result()->fetch_assoc();
+$stmt->close();
 
-                $stmt = $conn->prepare("INSERT INTO Match_Requests (match_id, match_owner_id, matched_user_id, status, created_at) VALUES (?, ?, ?, 'pending', NOW())");
-                $stmt->bind_param('iii', $matchId, $likedId, $current_user_id);
-                $stmt->execute();
-                $request2Id = $stmt->insert_id;
-                $stmt->close();
+if (!$existing1) {
+    $stmt = $conn->prepare("INSERT INTO Match_Requests (match_id, match_owner_id, matched_user_id, status, created_at, vote_expires_at) VALUES (?, ?, ?, 'pending', NOW(), DATE_ADD(NOW(), INTERVAL 5 MINUTE))");
+    $stmt->bind_param('iii', $matchId, $current_user_id, $likedId);
+    $stmt->execute();
+    $request1Id = $stmt->insert_id;
+    $stmt->close();
+}
+
+$stmt = $conn->prepare("SELECT request_id FROM Match_Requests WHERE match_id = ? AND match_owner_id = ?");
+$stmt->bind_param('ii', $matchId, $likedId);
+$stmt->execute();
+$existing2 = $stmt->get_result()->fetch_assoc();
+$stmt->close();
+
+if (!$existing2) {
+    $stmt = $conn->prepare("INSERT INTO Match_Requests (match_id, match_owner_id, matched_user_id, status, created_at, vote_expires_at) VALUES (?, ?, ?, 'pending', NOW(), DATE_ADD(NOW(), INTERVAL 5 MINUTE))");
+    $stmt->bind_param('iii', $matchId, $likedId, $current_user_id);
+    $stmt->execute();
+    $request2Id = $stmt->insert_id;
+    $stmt->close();
+}
 
                 $stmt = $conn->prepare(
                     "INSERT INTO Notifications (recipient_id, notification_type, reference_type, reference_id, created_at)
