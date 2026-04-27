@@ -1,14 +1,7 @@
-/* Admin Navbar */
-.admin-navbar {
-    width: 100%;
-    padding: 15px 20px;
-    background: #FFFFFF;
-    box-shadow: 0 4px 4px 0 rgba(0, 0, 0, 0.25);
-}
+/* Admin theme overrides — everything else is Bootstrap */
 
 .admin-nav-link {
     color: #333;
-    text-decoration: none;
     font-family: var(--wm-font-family);
     font-size: 14px;
 }
@@ -17,166 +10,24 @@
     color: var(--wm-button-primary);
 }
 
-/* Sidebar */
 .admin-sidebar {
     background-color: var(--wm-button-secondary);
-    min-height: calc(100vh - 80px);
-    padding: 1rem;
-}
-
-.admin-inbox {
-    background-color: #FFFFFF;
-    border-radius: 1.25rem;
-    padding: 1.25rem;
-}
-
-.inbox-title {
-    font-size: 18px;
-    font-weight: 700;
 }
 
 .inbox-item {
-    display: block;
     color: var(--wm-button-primary);
     font-size: 14px;
     font-weight: 500;
-    text-decoration: none;
-    margin-bottom: 8px;
 }
 
 .inbox-item:hover {
-    text-decoration: underline;
+    text-decoration: underline !important;
 }
 
-/* Main Content */
-.admin-content {
-    padding: 2rem;
-}
-
-.admin-page-title {
-    font-size: 24px;
-    font-weight: 700;
-    margin-bottom: 1rem;
-}
-
-/* Admin Profile on Dashboard */
-.admin-profile {
-    margin-top: 1rem;
-}
-
-.admin-avatar {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background-color: #E0E0E0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-}
-
-.admin-avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.admin-profile-name {
-    font-size: 20px;
-    font-weight: 600;
-}
-
-/* Dashboard Menu Box */
-.admin-menu-box {
-    border: 1px solid var(--wm-button-primary);
-    border-radius: var(--wm-button-radius);
-    overflow: hidden;
-}
-
-.admin-menu-item {
-    display: block;
-    padding: 16px 20px;
-    font-family: var(--wm-font-family);
-    font-size: 16px;
-    color: #333;
-    text-decoration: none;
-    border-bottom: 1px solid #E0E0E0;
-}
-
-.admin-menu-item:last-child {
-    border-bottom: none;
-}
-
-.admin-menu-item:hover {
-    background-color: #F5F5F5;
-}
-
-/* Links in tables */
 .admin-link {
     color: var(--wm-button-primary);
-    text-decoration: none;
 }
 
 .admin-link:hover {
-    text-decoration: underline;
-}
-
-/* Brand colours for Bootstrap badges (use alongside `class="badge status-*"`) */
-.status-active,
-.status-resolved {
-    background-color: #2E7D32;
-    color: #FFFFFF;
-}
-
-.status-suspended,
-.status-open {
-    background-color: var(--wm-button-secondary);
-    color: #FFFFFF;
-}
-
-.status-banned {
-    background-color: var(--wm-button-primary);
-    color: #FFFFFF;
-}
-
-.status-dismissed {
-    background-color: #808080;
-    color: #FFFFFF;
-}
-
-/* Smaller action buttons that reuse global button styles */
-.admin-action-btn {
-    width: auto;
-    height: auto;
-    padding: 4px 14px;
-    font-size: 12px;
-    text-decoration: none;
-}
-
-/* Admin photo thumbnails with remove button below each */
-.admin-photo-thumb {
-    position: relative;
-    width: 120px;
-}
-
-.admin-photo-thumb img {
-    width: 120px;
-    height: 120px;
-    object-fit: cover;
-    border-radius: 8px;
-}
-
-.admin-photo-thumb form {
-    margin-top: 6px;
-}
-
-.admin-photo-badge {
-    position: absolute;
-    top: 4px;
-    left: 4px;
-    background-color: var(--wm-button-primary);
-    color: #FFFFFF;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 11px;
+    text-decoration: underline !important;
 }

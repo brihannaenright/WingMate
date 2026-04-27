@@ -210,29 +210,29 @@ if (isset($_SESSION['admin_error'])) {
 <link rel="stylesheet" href="/features/admin/admin.css">
 
 <!-- Admin Navbar -->
-<nav class="admin-navbar d-flex justify-content-between align-items-center">
-    <div class="admin-navbar-brand">
+<nav class="d-flex justify-content-between align-items-center bg-white shadow-sm py-3 px-4">
+    <div>
         <img src="/assets/images/wingmate-navbar.png" alt="WingMate" style="height: 50px; width: auto;">
     </div>
-    <div class="admin-navbar-links d-flex gap-3">
-        <a href="/features/admin/admin.php" class="admin-nav-link">Admin Console</a>
-        <a href="/features/auth/login.php" class="admin-nav-link">Logout</a>
+    <div class="d-flex gap-3">
+        <a href="/features/admin/admin.php" class="admin-nav-link text-decoration-none">Admin Console</a>
+        <a href="/features/auth/login.php" class="admin-nav-link text-decoration-none">Logout</a>
     </div>
 </nav>
 
 <div class="container-fluid">
     <div class="row">
         <!-- Inbox Sidebar -->
-        <div class="col-lg-2 admin-sidebar">
-            <div class="admin-inbox">
-                <p class="inbox-title">Inbox</p>
-                <a href="/features/admin/admin.php?page=reports" class="inbox-item"><?php echo (int) $report_count; ?> Open Reports</a>
-                <a href="/features/admin/admin.php?page=suspended" class="inbox-item"><?php echo (int) $suspended_count; ?> Suspended/Banned</a>
+        <div class="col-lg-2 admin-sidebar p-3 min-vh-100">
+            <div class="bg-white rounded-4 p-4">
+                <p class="fs-5 fw-bold">Inbox</p>
+                <a href="/features/admin/admin.php?page=reports" class="d-block text-decoration-none mb-2 inbox-item"><?php echo (int) $report_count; ?> Open Reports</a>
+                <a href="/features/admin/admin.php?page=suspended" class="d-block text-decoration-none mb-2 inbox-item"><?php echo (int) $suspended_count; ?> Suspended/Banned</a>
             </div>
         </div>
 
         <!-- Main Content -->
-        <div class="col-lg-10 admin-content">
+        <div class="col-lg-10 p-4">
             <!-- Error message display -->
             <?php if ($adminError !== ''): ?>
                 <div class="alert alert-danger"><?php echo htmlspecialchars($adminError, ENT_QUOTES, 'UTF-8'); ?></div>
@@ -240,24 +240,24 @@ if (isset($_SESSION['admin_error'])) {
 
             <?php if ($page === 'dashboard'): ?>
                 <!-- Dashboard Home -->
-                <div class="admin-profile d-flex align-items-center gap-3 mb-4">
-                    <div class="admin-avatar">
-                        <img src="/assets/images/default-avatar.svg" alt="Admin">
+                <div class="d-flex align-items-center gap-3 mt-3 mb-4">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center overflow-hidden bg-secondary-subtle" style="width:80px;height:80px;">
+                        <img src="/assets/images/default-avatar.svg" alt="Admin" class="w-100 h-100" style="object-fit:cover;">
                     </div>
                     <div>
-                        <p class="admin-profile-name"><?php echo htmlspecialchars($admin_name, ENT_QUOTES, 'UTF-8'); ?></p>
+                        <p class="fs-5 fw-semibold mb-0"><?php echo htmlspecialchars($admin_name, ENT_QUOTES, 'UTF-8'); ?></p>
                     </div>
                 </div>
 
-                <div class="admin-menu-box">
-                    <a href="/features/admin/admin.php?page=reports" class="admin-menu-item">Review Reports</a>
-                    <a href="/features/admin/admin.php?page=suspended" class="admin-menu-item">View and Edit Banned or Suspended Users</a>
-                    <a href="/features/admin/admin.php?page=users" class="admin-menu-item">Manage All Users</a>
+                <div class="list-group">
+                    <a href="/features/admin/admin.php?page=reports" class="list-group-item list-group-item-action">Review Reports</a>
+                    <a href="/features/admin/admin.php?page=suspended" class="list-group-item list-group-item-action">View and Edit Banned or Suspended Users</a>
+                    <a href="/features/admin/admin.php?page=users" class="list-group-item list-group-item-action">Manage All Users</a>
                 </div>
 
             <?php elseif ($page === 'reports'): ?>
                 <!-- Review Reports -->
-                <p class="admin-page-title">Review Reports</p>
+                <h2 class="fs-3 fw-bold mb-3">Review Reports</h2>
 
                 <?php
                 // Fetch open reports with reporter and reported user info
@@ -278,6 +278,7 @@ if (isset($_SESSION['admin_error'])) {
                 ?>
 
                 <?php if (count($reports) > 0): ?>
+                    <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
                             <tr>
@@ -295,14 +296,22 @@ if (isset($_SESSION['admin_error'])) {
                                 <tr>
                                     <td><?php echo htmlspecialchars($report['reporter_first'] . ' ' . $report['reporter_last'], ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td>
-                                        <a href="/features/admin/admin.php?page=user_detail&user_id=<?php echo (int) $report['reported_id']; ?>" class="admin-link">
+                                        <a href="/features/admin/admin.php?page=user_detail&user_id=<?php echo (int) $report['reported_id']; ?>" class="admin-link text-decoration-none">
                                             <?php echo htmlspecialchars($report['reported_first'] . ' ' . $report['reported_last'], ENT_QUOTES, 'UTF-8'); ?>
                                         </a>
                                     </td>
                                     <td><?php echo htmlspecialchars($report['reason'], ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td><?php echo htmlspecialchars($report['details'], ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td>
-                                        <span class="badge status-<?php echo htmlspecialchars($report['report_status'], ENT_QUOTES, 'UTF-8'); ?>">
+                                        <?php
+                                        $reportBadge = match ($report['report_status']) {
+                                            'open' => 'text-bg-warning',
+                                            'resolved' => 'text-bg-success',
+                                            'dismissed' => 'text-bg-secondary',
+                                            default => 'text-bg-secondary',
+                                        };
+                                        ?>
+                                        <span class="badge <?php echo $reportBadge; ?>">
                                             <?php echo htmlspecialchars($report['report_status'], ENT_QUOTES, 'UTF-8'); ?>
                                         </span>
                                     </td>
@@ -312,8 +321,8 @@ if (isset($_SESSION['admin_error'])) {
                                             <form method="POST" class="d-inline">
                                                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                                                 <input type="hidden" name="report_id" value="<?php echo (int) $report['report_id']; ?>">
-                                                <button type="submit" name="action" value="resolve_report" class="button-secondary admin-action-btn">Resolve</button>
-                                                <button type="submit" name="action" value="dismiss_report" class="admin-action-btn">Dismiss</button>
+                                                <button type="submit" name="action" value="resolve_report" class="btn btn-secondary btn-sm">Resolve</button>
+                                                <button type="submit" name="action" value="dismiss_report" class="btn btn-danger btn-sm">Dismiss</button>
                                             </form>
                                         <?php endif; ?>
                                     </td>
@@ -321,8 +330,9 @@ if (isset($_SESSION['admin_error'])) {
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                    </div>
                 <?php else: ?>
-                    <p class="text-muted small">No reports found.</p>
+                    <div class="alert alert-light text-center text-muted">No reports found.</div>
                 <?php endif; ?>
 
             <?php elseif ($page === 'user_detail'): ?>
@@ -391,27 +401,46 @@ if (isset($_SESSION['admin_error'])) {
                 ?>
 
                 <?php if ($view_user): ?>
-                    <p class="admin-page-title">User Detail</p>
+                    <h2 class="fs-3 fw-bold mb-3">User Detail</h2>
 
                     <!-- User Info -->
+                    <?php
+                    $statusBadge = match ($view_user['account_status']) {
+                        'active' => 'text-bg-success',
+                        'suspended' => 'text-bg-warning',
+                        'banned' => 'text-bg-danger',
+                        default => 'text-bg-secondary',
+                    };
+                    ?>
                     <div class="card card-body mb-4">
-                        <p><strong>Name:</strong> <?php echo htmlspecialchars($view_user['first_name'] . ' ' . $view_user['last_name'], ENT_QUOTES, 'UTF-8'); ?></p>
-                        <p><strong>Email:</strong> <?php echo htmlspecialchars($view_user['email'], ENT_QUOTES, 'UTF-8'); ?></p>
-                        <p><strong>Status:</strong>
-                            <span class="badge status-<?php echo htmlspecialchars($view_user['account_status'], ENT_QUOTES, 'UTF-8'); ?>">
-                                <?php echo htmlspecialchars($view_user['account_status'], ENT_QUOTES, 'UTF-8'); ?>
-                            </span>
-                        </p>
-                        <?php if ($view_user['suspended_until']): ?>
-                            <p><strong>Suspended Until:</strong> <?php echo htmlspecialchars($view_user['suspended_until'], ENT_QUOTES, 'UTF-8'); ?></p>
-                        <?php endif; ?>
-                        <p><strong>Joined:</strong> <?php echo htmlspecialchars($view_user['created_at'], ENT_QUOTES, 'UTF-8'); ?></p>
+                        <dl class="row mb-0">
+                            <dt class="col-sm-3">Name</dt>
+                            <dd class="col-sm-9"><?php echo htmlspecialchars($view_user['first_name'] . ' ' . $view_user['last_name'], ENT_QUOTES, 'UTF-8'); ?></dd>
+
+                            <dt class="col-sm-3">Email</dt>
+                            <dd class="col-sm-9"><?php echo htmlspecialchars($view_user['email'], ENT_QUOTES, 'UTF-8'); ?></dd>
+
+                            <dt class="col-sm-3">Status</dt>
+                            <dd class="col-sm-9">
+                                <span class="badge <?php echo $statusBadge; ?>">
+                                    <?php echo htmlspecialchars($view_user['account_status'], ENT_QUOTES, 'UTF-8'); ?>
+                                </span>
+                            </dd>
+
+                            <?php if ($view_user['suspended_until']): ?>
+                                <dt class="col-sm-3">Suspended Until</dt>
+                                <dd class="col-sm-9"><?php echo htmlspecialchars($view_user['suspended_until'], ENT_QUOTES, 'UTF-8'); ?></dd>
+                            <?php endif; ?>
+
+                            <dt class="col-sm-3">Joined</dt>
+                            <dd class="col-sm-9"><?php echo htmlspecialchars($view_user['created_at'], ENT_QUOTES, 'UTF-8'); ?></dd>
+                        </dl>
                     </div>
 
                     <!-- Edit Profile (admin override for any User_Profile field) -->
                     <?php if ($view_user['user_type'] !== 'administrator'): ?>
                         <div class="card card-body mb-4">
-                            <p><strong>Edit Profile</strong></p>
+                            <h5 class="card-title">Edit Profile</h5>
                             <form method="POST">
                                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                                 <input type="hidden" name="action" value="edit_profile">
@@ -427,7 +456,7 @@ if (isset($_SESSION['admin_error'])) {
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label">Gender</label>
-                                        <select name="gender" class="form-control">
+                                        <select name="gender" class="form-select">
                                             <?php $g = $view_user['gender'] ?? ''; ?>
                                             <option value="" <?php echo $g === '' ? 'selected' : ''; ?>>Prefer not to say</option>
                                             <option value="male" <?php echo $g === 'male' ? 'selected' : ''; ?>>Male</option>
@@ -444,13 +473,13 @@ if (isset($_SESSION['admin_error'])) {
                                         <textarea name="user_bio" class="form-control" rows="3" maxlength="500"><?php echo htmlspecialchars($view_user['user_bio'] ?? '', ENT_QUOTES, 'UTF-8'); ?></textarea>
                                     </div>
                                 </div>
-                                <button type="submit" class="button-secondary admin-action-btn mt-3">Save</button>
+                                <button type="submit" class="btn btn-secondary btn-sm mt-3">Save</button>
                             </form>
                         </div>
 
                         <!-- Edit Email (separate form because email lives on the Users table) -->
                         <div class="card card-body mb-4">
-                            <p><strong>Edit Email</strong></p>
+                            <h5 class="card-title">Edit Email</h5>
                             <form method="POST" class="d-flex gap-2 align-items-end">
                                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                                 <input type="hidden" name="action" value="edit_email">
@@ -459,39 +488,39 @@ if (isset($_SESSION['admin_error'])) {
                                     <label class="form-label">Email</label>
                                     <input type="email" name="email" class="form-control" required value="<?php echo htmlspecialchars($view_user['email'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                                 </div>
-                                <button type="submit" class="button-secondary admin-action-btn">Save</button>
+                                <button type="submit" class="btn btn-secondary btn-sm">Save</button>
                             </form>
                         </div>
 
                         <!-- Photos: each thumbnail has its own remove form -->
                         <div class="card card-body mb-4">
-                            <p><strong>Photos</strong></p>
+                            <h5 class="card-title">Photos</h5>
                             <?php if (count($user_photos) > 0): ?>
                                 <div class="d-flex flex-wrap gap-2">
                                     <?php foreach ($user_photos as $photo): ?>
-                                        <div class="admin-photo-thumb">
-                                            <img src="/Uploads/<?php echo htmlspecialchars($photo['photo_url'], ENT_QUOTES, 'UTF-8'); ?>" alt="User photo">
+                                        <div class="position-relative" style="width:120px;">
+                                            <img src="/Uploads/<?php echo htmlspecialchars($photo['photo_url'], ENT_QUOTES, 'UTF-8'); ?>" alt="User photo" class="rounded" style="width:120px;height:120px;object-fit:cover;">
                                             <?php if ((int) $photo['is_primary'] === 1): ?>
-                                                <span class="admin-photo-badge">Primary</span>
+                                                <span class="position-absolute top-0 start-0 m-1 badge text-bg-primary">Primary</span>
                                             <?php endif; ?>
-                                            <form method="POST">
+                                            <form method="POST" class="mt-2">
                                                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                                                 <input type="hidden" name="action" value="delete_photo">
                                                 <input type="hidden" name="user_id" value="<?php echo (int) $view_user['user_id']; ?>">
                                                 <input type="hidden" name="photo_id" value="<?php echo (int) $photo['photo_id']; ?>">
-                                                <button type="submit" class="admin-action-btn">Remove</button>
+                                                <button type="submit" class="btn btn-danger btn-sm">Remove</button>
                                             </form>
                                         </div>
                                     <?php endforeach; ?>
                                 </div>
                             <?php else: ?>
-                                <p class="text-muted small">No photos.</p>
+                                <div class="alert alert-light text-center text-muted mb-0">No photos.</div>
                             <?php endif; ?>
                         </div>
 
                         <!-- Account Actions -->
                         <div class="card card-body mb-4">
-                            <p><strong>Account Actions</strong></p>
+                            <h5 class="card-title">Account Actions</h5>
                             <form method="POST" class="d-flex gap-2 align-items-end">
                                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                                 <input type="hidden" name="user_id" value="<?php echo (int) $view_user['user_id']; ?>">
@@ -501,12 +530,12 @@ if (isset($_SESSION['admin_error'])) {
                                         <label class="form-label">Suspend for (days)</label>
                                         <input type="number" name="suspend_days" class="form-control" value="7" min="1" max="365">
                                     </div>
-                                    <button type="submit" name="action" value="suspend" class="button-secondary admin-action-btn">Suspend</button>
-                                    <button type="submit" name="action" value="ban" class="admin-action-btn">Ban Permanently</button>
+                                    <button type="submit" name="action" value="suspend" class="btn btn-secondary btn-sm">Suspend</button>
+                                    <button type="submit" name="action" value="ban" class="btn btn-danger btn-sm">Ban Permanently</button>
 
                                 <?php elseif ($view_user['account_status'] === 'suspended'): ?>
-                                    <button type="submit" name="action" value="unsuspend" class="button-secondary admin-action-btn">Unsuspend</button>
-                                    <button type="submit" name="action" value="ban" class="admin-action-btn">Ban Permanently</button>
+                                    <button type="submit" name="action" value="unsuspend" class="btn btn-secondary btn-sm">Unsuspend</button>
+                                    <button type="submit" name="action" value="ban" class="btn btn-danger btn-sm">Ban Permanently</button>
 
                                 <?php elseif ($view_user['account_status'] === 'banned'): ?>
                                     <p class="text-danger small mb-0">This account is permanently banned.</p>
@@ -517,8 +546,9 @@ if (isset($_SESSION['admin_error'])) {
 
                     <!-- User's Messages -->
                     <div class="card card-body">
-                        <p><strong>Recent Messages</strong></p>
+                        <h5 class="card-title">Recent Messages</h5>
                         <?php if (count($user_messages) > 0): ?>
+                            <div class="table-responsive">
                             <table class="table table-hover">
                                 <thead>
                                     <tr>
@@ -535,9 +565,9 @@ if (isset($_SESSION['admin_error'])) {
                                             <td><?php echo htmlspecialchars($msg['sent_at'], ENT_QUOTES, 'UTF-8'); ?></td>
                                             <td>
                                                 <?php if ($msg['is_removed']): ?>
-                                                    <span class="badge status-banned">removed</span>
+                                                    <span class="badge text-bg-danger">removed</span>
                                                 <?php else: ?>
-                                                    <span class="badge status-active">visible</span>
+                                                    <span class="badge text-bg-success">visible</span>
                                                 <?php endif; ?>
                                             </td>
                                             <td>
@@ -546,7 +576,7 @@ if (isset($_SESSION['admin_error'])) {
                                                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                                                         <input type="hidden" name="action" value="remove_message">
                                                         <input type="hidden" name="message_id" value="<?php echo (int) $msg['message_id']; ?>">
-                                                        <button type="submit" class="admin-action-btn">Remove</button>
+                                                        <button type="submit" class="btn btn-danger btn-sm">Remove</button>
                                                     </form>
                                                 <?php endif; ?>
                                             </td>
@@ -554,15 +584,17 @@ if (isset($_SESSION['admin_error'])) {
                                     <?php endforeach; ?>
                                 </tbody>
                             </table>
+                            </div>
                         <?php else: ?>
-                            <p class="text-muted small">No messages found.</p>
+                            <div class="alert alert-light text-center text-muted mb-0">No messages found.</div>
                         <?php endif; ?>
                     </div>
 
                     <!-- Profile Comments this user has written (Friend_Comments) -->
                     <div class="card card-body mt-4">
-                        <p><strong>Profile Comments Written</strong></p>
+                        <h5 class="card-title">Profile Comments Written</h5>
                         <?php if (count($user_comments) > 0): ?>
+                            <div class="table-responsive">
                             <table class="table table-hover">
                                 <thead>
                                     <tr>
@@ -584,15 +616,16 @@ if (isset($_SESSION['admin_error'])) {
                                                     <input type="hidden" name="action" value="delete_comment">
                                                     <input type="hidden" name="user_id" value="<?php echo (int) $view_user['user_id']; ?>">
                                                     <input type="hidden" name="comment_id" value="<?php echo (int) $comment['comment_id']; ?>">
-                                                    <button type="submit" class="admin-action-btn">Remove</button>
+                                                    <button type="submit" class="btn btn-danger btn-sm">Remove</button>
                                                 </form>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
                                 </tbody>
                             </table>
+                            </div>
                         <?php else: ?>
-                            <p class="text-muted small">No comments written.</p>
+                            <div class="alert alert-light text-center text-muted mb-0">No comments written.</div>
                         <?php endif; ?>
                     </div>
 
@@ -602,7 +635,7 @@ if (isset($_SESSION['admin_error'])) {
 
             <?php elseif ($page === 'suspended'): ?>
                 <!-- View Suspended and Banned Users -->
-                <p class="admin-page-title">Suspended & Banned Users</p>
+                <h2 class="fs-3 fw-bold mb-3">Suspended & Banned Users</h2>
 
                 <?php
                 $suspended_users = [];
@@ -620,6 +653,7 @@ if (isset($_SESSION['admin_error'])) {
                 ?>
 
                 <?php if (count($suspended_users) > 0): ?>
+                    <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
                             <tr>
@@ -634,13 +668,21 @@ if (isset($_SESSION['admin_error'])) {
                             <?php foreach ($suspended_users as $user): ?>
                                 <tr>
                                     <td>
-                                        <a href="/features/admin/admin.php?page=user_detail&user_id=<?php echo (int) $user['user_id']; ?>" class="admin-link">
+                                        <a href="/features/admin/admin.php?page=user_detail&user_id=<?php echo (int) $user['user_id']; ?>" class="admin-link text-decoration-none">
                                             <?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name'], ENT_QUOTES, 'UTF-8'); ?>
                                         </a>
                                     </td>
                                     <td><?php echo htmlspecialchars($user['email'], ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td>
-                                        <span class="badge status-<?php echo htmlspecialchars($user['account_status'], ENT_QUOTES, 'UTF-8'); ?>">
+                                        <?php
+                                        $userBadge = match ($user['account_status']) {
+                                            'active' => 'text-bg-success',
+                                            'suspended' => 'text-bg-warning',
+                                            'banned' => 'text-bg-danger',
+                                            default => 'text-bg-secondary',
+                                        };
+                                        ?>
+                                        <span class="badge <?php echo $userBadge; ?>">
                                             <?php echo htmlspecialchars($user['account_status'], ENT_QUOTES, 'UTF-8'); ?>
                                         </span>
                                     </td>
@@ -650,7 +692,7 @@ if (isset($_SESSION['admin_error'])) {
                                             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                                             <input type="hidden" name="user_id" value="<?php echo (int) $user['user_id']; ?>">
                                             <?php if ($user['account_status'] === 'suspended'): ?>
-                                                <button type="submit" name="action" value="unsuspend" class="button-secondary admin-action-btn">Unsuspend</button>
+                                                <button type="submit" name="action" value="unsuspend" class="btn btn-secondary btn-sm">Unsuspend</button>
                                             <?php endif; ?>
                                         </form>
                                     </td>
@@ -658,13 +700,14 @@ if (isset($_SESSION['admin_error'])) {
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                    </div>
                 <?php else: ?>
-                    <p class="text-muted small">No suspended or banned users.</p>
+                    <div class="alert alert-light text-center text-muted">No suspended or banned users.</div>
                 <?php endif; ?>
 
             <?php elseif ($page === 'users'): ?>
                 <!-- Manage All Users -->
-                <p class="admin-page-title">Manage All Users</p>
+                <h2 class="fs-3 fw-bold mb-3">Manage All Users</h2>
 
                 <?php
                 $users = [];
@@ -680,6 +723,7 @@ if (isset($_SESSION['admin_error'])) {
                 $stmt->close();
                 ?>
 
+                <div class="table-responsive">
                 <table class="table table-hover">
                     <thead>
                         <tr>
@@ -695,27 +739,36 @@ if (isset($_SESSION['admin_error'])) {
                         <?php foreach ($users as $user): ?>
                             <tr>
                                 <td>
-                                    <a href="/features/admin/admin.php?page=user_detail&user_id=<?php echo (int) $user['user_id']; ?>" class="admin-link">
+                                    <a href="/features/admin/admin.php?page=user_detail&user_id=<?php echo (int) $user['user_id']; ?>" class="admin-link text-decoration-none">
                                         <?php echo htmlspecialchars(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
                                     </a>
                                 </td>
                                 <td><?php echo htmlspecialchars($user['email'], ENT_QUOTES, 'UTF-8'); ?></td>
                                 <td><?php echo htmlspecialchars($user['user_type'], ENT_QUOTES, 'UTF-8'); ?></td>
                                 <td>
-                                    <span class="badge status-<?php echo htmlspecialchars($user['account_status'], ENT_QUOTES, 'UTF-8'); ?>">
+                                    <?php
+                                    $allUserBadge = match ($user['account_status']) {
+                                        'active' => 'text-bg-success',
+                                        'suspended' => 'text-bg-warning',
+                                        'banned' => 'text-bg-danger',
+                                        default => 'text-bg-secondary',
+                                    };
+                                    ?>
+                                    <span class="badge <?php echo $allUserBadge; ?>">
                                         <?php echo htmlspecialchars($user['account_status'], ENT_QUOTES, 'UTF-8'); ?>
                                     </span>
                                 </td>
                                 <td><?php echo htmlspecialchars($user['created_at'], ENT_QUOTES, 'UTF-8'); ?></td>
                                 <td>
                                     <?php if ($user['user_type'] !== 'administrator'): ?>
-                                        <a href="/features/admin/admin.php?page=user_detail&user_id=<?php echo (int) $user['user_id']; ?>" class="button-secondary admin-action-btn">View</a>
+                                        <a href="/features/admin/admin.php?page=user_detail&user_id=<?php echo (int) $user['user_id']; ?>" class="btn btn-secondary btn-sm">View</a>
                                     <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+                </div>
             <?php endif; ?>
         </div>
     </div>
