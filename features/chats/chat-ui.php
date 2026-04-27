@@ -1,37 +1,28 @@
 <?php
-/**
- * Chat UI Component
- * Include this file in any page where you want to display the chat interface
- * 
- * Requirements:
- * - Must be included after nav-header.php
- * - Requires currentUserId to be available in JavaScript (set before including this file)
- * - Requires Bootstrap 5 to be available
- */
-
-// Only include if not already included
+// Only executes if this is the first time the file has been included
 if (!defined('CHAT_UI_INCLUDED')) {
     define('CHAT_UI_INCLUDED', true);
 ?>
+
 <link rel="stylesheet" href="/features/chats/chats.css">
 
-<div class="chat d-flex flex-column">
-    <div id="emptyState" class="chat-empty-state">
+<div class="chat d-flex flex-column flex-grow-1 min-vh-0">
+    <div id="emptyState" class="chat-empty-state h-100 w-100 d-flex flex-column align-items-center justify-content-center">
         <div class="empty-state-content d-flex flex-column align-items-center justify-content-center">
             <p>Select a conversation</p>
             <p>Click on a contact to start messaging</p>
         </div>
     </div>
-    <div id="chatContent" class="chat-content d-none flex-column">
-        <div class="chat-container d-flex flex-column">
-            <div class="chat-header d-flex flex-row">
+    <div id="chatContent" class="chat-content d-none flex-grow-1 min-vh-0 flex-column p-5">
+        <div class="chat-container d-flex flex-column flex-grow-1 min-vh-0 rounded bg-white border">
+            <div class="chat-header d-flex flex-row w-100 rounded-top bg-light p-3">
                 <div class="header-info d-flex flex-row gap-3">
                     <div class="profile-image-wrapper">
-                        <img id="chatProfilePicture" class="profile-pic-header" src="" alt="Profile">
+                        <img id="chatProfilePicture" class="profile-pic-header w-100 h-100 " src="" alt="Profile">
                     </div>
                     <h3 id="chatFriendName"></h3>
                 </div>
-                <div class="report-settings gap-3">
+                <div class="report-settings gap-3 ms-auto">
                     <button id="headerReportBtn" class="report-btn" data-bs-toggle="modal" data-bs-target="#reportModal">
                             <img src="/assets/images/flag-icon.svg" alt="Report" title="Report this user">
                     </button>
@@ -40,12 +31,12 @@ if (!defined('CHAT_UI_INCLUDED')) {
                     </button>
                 </div>
             </div>
-            <div id="messagesContainer" class="messages-container d-flex flex-column">
+            <div id="messagesContainer" class="messages-container d-flex flex-column overflow-y-auto p-5">
                 <!-- Messages will be loaded here -->
             </div>
-            <div class="chat-input-area">
-                <form id="messageForm" class="message-form">
-                    <textarea id="messageInput" class="message-input" placeholder="Type a message..." rows="1" autocomplete="off"></textarea>
+            <div class="chat-input-area bg-white p-3 border-top flex-shrink-0">
+                <form id="messageForm" class="message-form d-flex gap-2">
+                    <textarea id="messageInput" class="message-input flex-grow-1 px-1 py-2 border rounded-3" placeholder="Type a message..." rows="1" autocomplete="off"></textarea>
                     <button type="submit" class="btn-send">Send</button>
                 </form>
             </div>
@@ -230,15 +221,15 @@ if (!defined('CHAT_UI_INCLUDED')) {
 </div>
 
 <script>
-// Initialize modal once
+//Initialise confirmation modal instance
 let confirmationModal = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     const modalElement = document.getElementById('confirmationModal');
     if (modalElement) {
         confirmationModal = new bootstrap.Modal(modalElement, {
-            backdrop: 'static',
-            keyboard: false
+            backdrop: 'static', //Prevents closing by clicking outside
+            keyboard: false //Prevents closing with the keyboard
         });
     }
 });
@@ -284,7 +275,7 @@ function showConfirmation(message, onConfirm, onCancel = null) {
 function showToast(message, type = 'info', duration = 3000) {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
-    toast.className = `toast-notification toast-${type}`;
+    toast.className = `toast-notification text-white mb-1 rounded p-3 mw-100 toast-${type}`;
     toast.textContent = message;
     
     container.appendChild(toast);
@@ -341,9 +332,27 @@ const ChatManager = {
                 });
             }
         }
+
+        // Pause/resume polling based on tab visibility
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                // Stop polling when tab is hidden
+                if (this.messagePoller) {
+                    clearInterval(this.messagePoller);
+                    this.messagePoller = null;
+                }
+            } else if (this.currentChatId) {
+                // Load messages when returning to tab and restart polling
+                this.loadMessages();
+                this.messagePoller = setInterval(() => {
+                    if (!this.currentChatId) return; //Safety check to ensure we don't poll without a chat loaded
+                    this.loadMessages();
+                }, 8000);
+            }
+        });
     },
 
-    loadGroupChat: function(groupId, groupName, profilePictureUrl = null, onLoadComplete = null) {
+    loadGroupChat: function(groupId, groupName, onLoadComplete = null) {
         // Show loading state
         this.emptyState.classList.add('d-none');
         this.chatContent.classList.remove('d-none');
@@ -351,6 +360,8 @@ const ChatManager = {
         this.currentFriendId = null;
         this.currentMatchId = null;
         this.chatType = 'group';
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         document.getElementById('chatFriendName').textContent = 'Loading...';
         
@@ -367,11 +378,14 @@ const ChatManager = {
             this.messagePoller = null;
         }
 
-        fetch(`/features/chats/chat-api.php?action=get_group_chat&group_id=${groupId}`)
+        fetch(`/features/chats/chat-api.php?action=get_group_chat&group_id=${groupId}`, {
+            signal: controller.signal
+        })
             .then(response => response.json())
             .then(data => {
+                clearTimeout(timeoutId);
                 if (data.error) {
-                    messagesContainer.innerHTML = '<p>Error loading chat</p>';
+                    showToast(data.error || 'Error loading chat', 'error', 0);
                     if (onLoadComplete) onLoadComplete(false);
                     return;
                 }
@@ -386,18 +400,17 @@ const ChatManager = {
                 //POLLING (only when tab is active)
                 this.messagePoller = setInterval(() => {
                     if (!this.currentChatId) return;
-
-                    // Only poll if user is actively viewing the tab
-                    if (document.hidden) return;
-
                     this.loadMessages();
-                }, 3000);
+                }, 8000);
 
                 if (onLoadComplete) onLoadComplete(true);
             })
             .catch(error => {
-                console.error('Error:', error);
-                messagesContainer.innerHTML = '<p>Error loading chat</p>';
+                clearTimeout(timeoutId);
+                if (error.name !== 'AbortError') {
+                    console.error('Error:', error);
+                    showToast('Error loading chat', 'error', 0);
+                }
                 if (onLoadComplete) onLoadComplete(false);
             });
     },
@@ -411,6 +424,8 @@ const ChatManager = {
         this.currentGroupId = null;
         this.chatType = matchId ? 'match' : 'direct';
         this.isCreator = false;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         document.getElementById('chatFriendName').textContent = 'Loading...';
         
@@ -431,11 +446,14 @@ const ChatManager = {
             this.messagePoller = null;
         }
 
-        fetch(`/features/chats/chat-api.php?action=get_chat_id&friend_id=${friendId}`)
+        fetch(`/features/chats/chat-api.php?action=get_chat_id&friend_id=${friendId}`, {
+            signal: controller.signal
+        })
             .then(response => response.json())
             .then(data => {
+                clearTimeout(timeoutId);
                 if (data.error) {
-                    messagesContainer.innerHTML = '<p>Error loading chat</p>';
+                    showToast(data.error || 'Error loading chat', 'error', 0);
                     if (onLoadComplete) onLoadComplete(false);
                     return;
                 }
@@ -453,32 +471,42 @@ const ChatManager = {
                 //POLLING (only when tab is active)
                 this.messagePoller = setInterval(() => {
                     if (!this.currentChatId) return;
-
                     // Only poll if user is actively viewing the tab
                     if (document.hidden) return;
-
                     this.loadMessages();
-                }, 3000);
+                }, 8000);
 
                 if (onLoadComplete) onLoadComplete(true);
             })
             .catch(error => {
-                console.error('Error:', error);
-                messagesContainer.innerHTML = '<p>Error loading chat</p>';
+                clearTimeout(timeoutId);
+                if (error.name !== 'AbortError') {
+                    console.error('Error:', error);
+                    showToast('Error loading chat', 'error', 0);
+                }
                 if (onLoadComplete) onLoadComplete(false);
             });
     },
 
     loadMessages: function() {
-    if (!this.currentChatId) return;
+        if (!this.currentChatId) return;
 
-    fetch(`/features/chats/chat-api.php?action=get_messages&chat_id=${this.currentChatId}`)
-        .then(response => response.json())
-        .then(data => {
+        // Skip polling if tab is hidden
+        if (document.hidden) return;
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+        fetch(`/features/chats/chat-api.php?action=get_messages&chat_id=${this.currentChatId}`, {
+            signal: controller.signal
+        })
+            .then(response => response.json())
+            .then(data => {
+                clearTimeout(timeoutId);
             const messagesContainer = document.getElementById('messagesContainer');
 
             if (!data.messages) {
-                messagesContainer.innerHTML = '<p class="no-messages">Error loading messages</p>';
+                messagesContainer.innerHTML = '<p class="no-messages text-muted small m-auto text-center">Error loading messages</p>';
                 return;
             }
 
@@ -488,17 +516,17 @@ const ChatManager = {
             messagesContainer.innerHTML = '';
 
             if (data.messages.length === 0) {
-                messagesContainer.innerHTML = '<p class="no-messages">No messages yet. Start the conversation!</p>';
+                messagesContainer.innerHTML = '<p class="no-messages text-muted small m-auto text-center">No messages yet. Start the conversation!</p>';
                 return;
             }
 
             data.messages.forEach(msg => {
                 const messageDiv = document.createElement('div');
-                messageDiv.className = `message ${msg.sender_id == this.currentUserId ? 'sent' : 'received'}`;
+                messageDiv.className = `message ${msg.sender_id == this.currentUserId ? 'sent' : 'received'} d-flex flex-column max-w-75 word-break`;
 
                 let senderName = '';
                 if (this.chatType === 'group' && msg.sender_id != this.currentUserId) {
-                    senderName = `<div class="message-sender-name">${this.escapeHtml(msg.first_name + ' ' + msg.last_name)}</div>`;
+                    senderName = `<div class="message-sender-name small text-muted mb-1 px-1 font-weight-bold">${this.escapeHtml(msg.first_name + ' ' + msg.last_name)}</div>`;
                 }
 
                 let reportButton = '';
@@ -510,11 +538,11 @@ const ChatManager = {
 
                 // Determine receipt status for sent messages
                 let receiptStatus = '';
-                let timeClass = 'message-time';
+                let timeClass = 'message-time mt-1 px-2 text-muted small';
                 if (msg.sender_id == this.currentUserId) {
                     if (msg.read_at) {
                         receiptStatus = ' • Read';
-                        timeClass = 'message-time message-read';
+                        timeClass = 'message-time message-read mt-1 px-2 small';
                     } else if (msg.delivered_at) {
                         receiptStatus = ' • Delivered';
                     }
@@ -562,7 +590,12 @@ const ChatManager = {
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
             }
         })
-        .catch(error => console.error('Error loading messages:', error));
+        .catch(error => {
+            clearTimeout(timeoutId);
+            if (error.name !== 'AbortError') {
+                console.error('Error loading messages:', error);
+            }
+        });
     },
 
     handleSendMessage: function(e) {
@@ -578,12 +611,17 @@ const ChatManager = {
         formData.append('chat_id', this.currentChatId);
         formData.append('content', content);
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
         fetch('/features/chats/chat-api.php', {
             method: 'POST',
-            body: formData
+            body: formData,
+            signal: controller.signal
         })
         .then(response => response.json())
         .then(data => {
+            clearTimeout(timeoutId);
             if (data.success) {
                 this.loadMessages();
             } else {
@@ -591,7 +629,11 @@ const ChatManager = {
             }
         })
         .catch(error => {
-            console.error('Error:', error);
+            clearTimeout(timeoutId);
+            if (error.name !== 'AbortError') {
+                console.error('Error:', error);
+                showToast('Error sending message', 'error');
+            }
         });
     },
 
@@ -631,18 +673,6 @@ const ChatManager = {
         modal.show();
     },
 
-    markMessageAsRead: function(messageId) {
-        const formData = new FormData();
-        formData.append('action', 'mark_message_read');
-        formData.append('message_id', messageId);
-
-        fetch('/features/chats/chat-api.php', {
-            method: 'POST',
-            body: formData
-        })
-        .catch(error => console.error('Error marking message as read:', error));
-    },
-
     markMessagesAsRead: function(messageIds) {
         if (messageIds.length === 0) return;
 
@@ -652,11 +682,22 @@ const ChatManager = {
             formData.append('action', 'mark_message_read');
             formData.append('message_id', messageId);
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout for background operation
+
             fetch('/features/chats/chat-api.php', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                signal: controller.signal
             })
-            .catch(error => console.error('Error marking message as read:', error));
+            .then(() => clearTimeout(timeoutId))
+            .catch(error => {
+                clearTimeout(timeoutId);
+                // Silently ignore timeout errors; log other errors to console only
+                if (error.name !== 'AbortError') {
+                    console.error('Error marking message as read:', error);
+                }
+            });
         });
     }
 };
@@ -792,12 +833,17 @@ document.addEventListener('DOMContentLoaded', function () {
             formData.append('message_id', ChatManager.selectedMessageId);
         }
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
         fetch('/features/chats/chat-api.php', {
             method: 'POST',
-            body: formData
+            body: formData,
+            signal: controller.signal
         })
         .then(res => res.json())
         .then(data => {
+            clearTimeout(timeoutId);
             if (data.success) {
                 // Show success message
                 showGeneralError('Report submitted successfully');
@@ -822,8 +868,11 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         })
         .catch(err => {
-            console.error(err);
-            showGeneralError('Error submitting report. Please try again.');
+            clearTimeout(timeoutId);
+            if (err.name !== 'AbortError') {
+                console.error(err);
+                showGeneralError('Error submitting report. Please try again.');
+            }
         });
     });
 
@@ -924,14 +973,19 @@ document.addEventListener('DOMContentLoaded', function () {
         formData.append('user_id', ChatManager.currentUserId);
         formData.append('friend_id', ChatManager.currentFriendId);
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
         fetch('/features/chats/chat-api.php', {
             method: 'POST',
-            body: formData
+            body: formData,
+            signal: controller.signal
         })
         .then(res => res.json())
         .then(data => {
+            clearTimeout(timeoutId);
             if (data.success) {
-                showSettingsMessage('Friend removed successfully', false);
+                showToast('Friend removed successfully', 'success');
                 setTimeout(() => {
                     const modal = bootstrap.Modal.getInstance(settingsModal);
                     modal.hide();
@@ -939,13 +993,16 @@ document.addEventListener('DOMContentLoaded', function () {
                     window.location.reload();
                 }, 1500);
             } else {
-                showSettingsMessage(data.error || 'Failed to remove friend', true);
+                showToast(data.error || 'Failed to remove friend', 'error', 0);
                 showSettingsLoading(false);
             }
         })
         .catch(err => {
-            console.error(err);
-            showSettingsMessage('Error removing friend', true);
+            clearTimeout(timeoutId);
+            if (err.name !== 'AbortError') {
+                console.error(err);
+                showToast('Error removing friend', 'error', 0);
+            }
             showSettingsLoading(false);
         });
     });
@@ -970,7 +1027,7 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                showSettingsMessage('Match removed successfully', false);
+                showToast('Match removed successfully', 'success');
                 setTimeout(() => {
                     const modal = bootstrap.Modal.getInstance(settingsModal);
                     modal.hide();
@@ -978,13 +1035,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     window.location.reload();
                 }, 1500);
             } else {
-                showSettingsMessage(data.error || 'Failed to unmatch', true);
+                showToast(data.error || 'Failed to unmatch', 'error', 0);
                 showSettingsLoading(false);
             }
         })
         .catch(err => {
             console.error(err);
-            showSettingsMessage('Error unmatching', true);
+            showToast('Error unmatching', 'error', 0);
             showSettingsLoading(false);
         });
     });
@@ -1003,14 +1060,19 @@ document.addEventListener('DOMContentLoaded', function () {
         formData.append('user_id', ChatManager.currentUserId);
         formData.append('blocked_id', ChatManager.currentFriendId);
 
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
         fetch('/features/chats/chat-api.php', {
             method: 'POST',
-            body: formData
+            body: formData,
+            signal: controller.signal
         })
         .then(res => res.json())
         .then(data => {
+            clearTimeout(timeoutId);
             if (data.success) {
-                showSettingsMessage('User blocked successfully', false);
+                showToast('User blocked successfully', 'success');
                 setTimeout(() => {
                     const modal = bootstrap.Modal.getInstance(settingsModal);
                     modal.hide();
@@ -1018,13 +1080,16 @@ document.addEventListener('DOMContentLoaded', function () {
                     window.location.reload();
                 }, 1500);
             } else {
-                showSettingsMessage(data.error || 'Failed to block user', true);
+                showToast(data.error || 'Failed to block user', 'error', 0);
                 showSettingsLoading(false);
             }
         })
         .catch(err => {
-            console.error(err);
-            showSettingsMessage('Error blocking user', true);
+            clearTimeout(timeoutId);
+            if (err.name !== 'AbortError') {
+                console.error(err);
+                showToast('Error blocking user', 'error', 0);
+            }
             showSettingsLoading(false);
         });
     });
@@ -1043,27 +1108,35 @@ document.addEventListener('DOMContentLoaded', function () {
             formData.append('action', 'leave_group');
             formData.append('group_id', ChatManager.currentGroupId);
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
             fetch('/features/chats/chat-api.php', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                signal: controller.signal
             })
             .then(res => res.json())
             .then(data => {
+                clearTimeout(timeoutId);
                 if (data.success) {
-                    showSettingsMessage('Left group successfully', false);
+                    showToast('Left group successfully', 'success');
                     setTimeout(() => {
                         const modal = bootstrap.Modal.getInstance(settingsModal);
                         modal.hide();
                         window.location.reload();
                     }, 1500);
                 } else {
-                    showSettingsMessage(data.error || 'Failed to leave group', true);
+                    showToast(data.error || 'Failed to leave group', 'error', 0);
                     showSettingsLoading(false);
                 }
             })
             .catch(err => {
-                console.error(err);
-                showSettingsMessage('Error leaving group', true);
+                clearTimeout(timeoutId);
+                if (err.name !== 'AbortError') {
+                    console.error(err);
+                    showToast('Error leaving group', 'error', 0);
+                }
                 showSettingsLoading(false);
             });
         });
@@ -1083,9 +1156,13 @@ document.addEventListener('DOMContentLoaded', function () {
             formData.append('action', 'delete_group');
             formData.append('group_id', ChatManager.currentGroupId);
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
             fetch('/features/chats/chat-api.php', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                signal: controller.signal
             })
             .then(res => {
                 if (!res.ok) {
@@ -1094,9 +1171,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 return res.json();
             })
             .then(data => {
+                clearTimeout(timeoutId);
                 console.log('Delete group response:', data);
                 if (data.success) {
-                    showSettingsMessage('Group deleted successfully', false);
+                    showToast('Group deleted successfully', 'success');
                     setTimeout(() => {
                         const modal = bootstrap.Modal.getInstance(settingsModal);
                         if (modal) {
@@ -1105,13 +1183,16 @@ document.addEventListener('DOMContentLoaded', function () {
                         window.location.reload();
                     }, 1500);
                 } else {
-                    showSettingsMessage(data.error || 'Failed to delete group', true);
+                    showToast(data.error || 'Failed to delete group', 'error', 0);
                     showSettingsLoading(false);
                 }
             })
             .catch(err => {
-                console.error('Error deleting group:', err);
-                showSettingsMessage('Error: ' + err.message, true);
+                clearTimeout(timeoutId);
+                if (err.name !== 'AbortError') {
+                    console.error('Error deleting group:', err);
+                    showToast('Error: ' + err.message, 'error', 0);
+                }
                 showSettingsLoading(false);
             });
         });
@@ -1138,9 +1219,15 @@ document.addEventListener('DOMContentLoaded', function () {
         kickMembersContainer.innerHTML = '';
         kickError.classList.add('d-none');
 
-        fetch(`/features/chats/chat-api.php?action=get_group_members&group_id=${ChatManager.currentGroupId}`)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+        fetch(`/features/chats/chat-api.php?action=get_group_members&group_id=${ChatManager.currentGroupId}`, {
+            signal: controller.signal
+        })
             .then(res => res.json())
             .then(data => {
+                clearTimeout(timeoutId);
                 kickLoading.classList.add('d-none');
 
                 if (data.error) {
@@ -1171,10 +1258,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
             })
             .catch(err => {
-                console.error(err);
+                clearTimeout(timeoutId);
+                if (err.name !== 'AbortError') {
+                    console.error(err);
+                    kickError.textContent = 'Error loading members';
+                    kickError.classList.remove('d-none');
+                }
                 kickLoading.classList.add('d-none');
-                kickError.textContent = 'Error loading members';
-                kickError.classList.remove('d-none');
             });
 
         kickModal.show();
@@ -1200,10 +1290,22 @@ document.addEventListener('DOMContentLoaded', function () {
                 formData.append('group_id', ChatManager.currentGroupId);
                 formData.append('member_id', memberId);
 
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
                 return fetch('/features/chats/chat-api.php', {
                     method: 'POST',
-                    body: formData
-                }).then(res => res.json());
+                    body: formData,
+                    signal: controller.signal
+                })
+                .then(res => res.json())
+                .catch(err => {
+                    if (err.name !== 'AbortError') {
+                        throw err;
+                    }
+                    return { success: false, error: 'Request timeout' };
+                })
+                .finally(() => clearTimeout(timeoutId));
             }))
             .then(results => {
                 const hasError = results.some(r => !r.success);

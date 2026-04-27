@@ -149,9 +149,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        // Release session lock so other tabs don't block on this request
+        session_write_close();
+
+        // 3s timeout so a slow Nominatim response doesn't hold the PHP slot
         $url = "https://nominatim.openstreetmap.org/reverse?lat=$lat&lon=$lng&format=json&zoom=10";
-        $opts = ['http' => ['header' => "User-Agent: WingMate/1.0\r\n"]];
-        $context = stream_context_create($opts);
+        $context = stream_context_create(['http' => [
+            'header'  => "User-Agent: WingMate/1.0\r\n",
+            'timeout' => 3,
+        ]]);
         $response = @file_get_contents($url, false, $context);
 
         $generalLocation = 'Unknown location';
@@ -524,6 +530,10 @@ include __DIR__ . '/../../includes/nav-header.php';
             return;
         }
 
+        const saveBtn = document.querySelector('#picModal .profile-btn-save');
+        if (saveBtn?.disabled) return;
+        if (saveBtn) saveBtn.disabled = true;
+
         const formData = new FormData();
         formData.append('action', 'upload_photo');
         formData.append('photo', selectedPicFile);
@@ -543,7 +553,10 @@ include __DIR__ . '/../../includes/nav-header.php';
                     alert('Upload failed: ' + (data.error || 'Unknown error'));
                 }
             })
-            .catch(err => alert('Error: ' + err.message));
+            .catch(err => alert('Error: ' + err.message))
+            .finally(() => {
+                if (saveBtn) saveBtn.disabled = false;
+            });
     }
 
     function removeProfilePic() {

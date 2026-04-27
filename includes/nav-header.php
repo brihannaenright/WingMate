@@ -35,7 +35,7 @@
                     <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/profile/profile.php') !== false ? 'active' : ''; ?>" href="/features/profile/profile.php">Profile</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/swipe/swipe.php') !== false ? 'active' : ''; ?>" href="/features/swipe/swipe.php">Swipe</a>
+                    <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/swipe/swipe.php') !== false ? 'active' : ''; ?>" href="/features/swipe/swipe.php">Explore</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/features/matches/matches.php') !== false ? 'active' : ''; ?>" href="/features/matches/matches.php">Matches</a>
@@ -107,9 +107,9 @@
             .catch(error => console.error('Error fetching notifications:', error));
     }
 
-    // Update notif badge every 10 seconds
+    // Update notif badge every 30 seconds
     document.addEventListener('DOMContentLoaded', function() {
         updateNotificationBadge();
-        setInterval(updateNotificationBadge, 10000);
+        setInterval(updateNotificationBadge, 30000);
     });
 </script>

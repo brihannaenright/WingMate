@@ -99,19 +99,88 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // Edit a user's profile (e.g. change offensive name)
-        if ($action === 'edit_profile' && $target_user_id > 0) {
-            $new_first_name = trim($_POST['first_name'] ?? '');
-            $new_last_name = trim($_POST['last_name'] ?? '');
-            if ($new_first_name !== '' && $new_last_name !== '') {
-                $stmt = $conn->prepare("UPDATE User_Profile SET first_name = ?, last_name = ? WHERE user_id = ?");
-                $stmt->bind_param("ssi", $new_first_name, $new_last_name, $target_user_id);
+        // Edit a user's email (validate format and uniqueness)
+        if ($action === 'edit_email' && $target_user_id > 0) {
+            $new_email = trim($_POST['email'] ?? '');
+            if (!filter_var($new_email, FILTER_VALIDATE_EMAIL)) {
+                $_SESSION['admin_error'] = 'Invalid email address.';
+            } else {
+                $stmt = $conn->prepare("SELECT user_id FROM Users WHERE email = ? AND user_id != ?");
+                $stmt->bind_param('si', $new_email, $target_user_id);
+                $stmt->execute();
+                $taken = $stmt->get_result()->num_rows > 0;
+                $stmt->close();
+
+                if ($taken) {
+                    $_SESSION['admin_error'] = 'That email is already in use.';
+                } else {
+                    $stmt = $conn->prepare("UPDATE Users SET email = ? WHERE user_id = ?");
+                    $stmt->bind_param('si', $new_email, $target_user_id);
+                    $stmt->execute();
+                    $stmt->close();
+                }
+            }
+        }
+
+        // Delete a profile comment (Friend_Comments has no soft-delete flag, so hard DELETE)
+        if ($action === 'delete_comment') {
+            $comment_id = (int) ($_POST['comment_id'] ?? 0);
+            if ($comment_id > 0) {
+                $stmt = $conn->prepare("DELETE FROM Friend_Comments WHERE comment_id = ?");
+                $stmt->bind_param('i', $comment_id);
                 $stmt->execute();
                 $stmt->close();
             }
         }
 
-        header('Location: /features/admin/admin.php?page=' . urlencode($page));
+        // Delete a user's photo (admin override; same logic as settings.php delete_photo)
+        if ($action === 'delete_photo' && $target_user_id > 0) {
+            $photo_id = (int) ($_POST['photo_id'] ?? 0);
+            if ($photo_id > 0) {
+                $stmt = $conn->prepare("SELECT photo_url FROM User_Pictures WHERE photo_id = ? AND user_id = ?");
+                $stmt->bind_param('ii', $photo_id, $target_user_id);
+                $stmt->execute();
+                $photo = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+
+                if ($photo) {
+                    $filePath = __DIR__ . '/../../Uploads/' . $photo['photo_url'];
+                    if (file_exists($filePath)) {
+                        unlink($filePath);
+                    }
+                    $stmt = $conn->prepare("DELETE FROM User_Pictures WHERE photo_id = ? AND user_id = ?");
+                    $stmt->bind_param('ii', $photo_id, $target_user_id);
+                    $stmt->execute();
+                    $stmt->close();
+                }
+            }
+        }
+
+        // Edit a user's profile (e.g. change offensive name, bio, gender, location)
+        if ($action === 'edit_profile' && $target_user_id > 0) {
+            $new_first_name = trim($_POST['first_name'] ?? '');
+            $new_last_name = trim($_POST['last_name'] ?? '');
+            $new_bio = trim($_POST['user_bio'] ?? '');
+            $new_location = trim($_POST['general_location'] ?? '');
+
+            $gender_raw = $_POST['gender'] ?? '';
+            $allowed_genders = ['male', 'female', 'non-binary'];
+            $new_gender = in_array($gender_raw, $allowed_genders, true) ? $gender_raw : null;
+
+            if ($new_first_name !== '' && $new_last_name !== '' && strlen($new_bio) <= 500) {
+                $stmt = $conn->prepare("UPDATE User_Profile SET first_name = ?, last_name = ?, gender = ?, user_bio = ?, general_location = ? WHERE user_id = ?");
+                $stmt->bind_param("sssssi", $new_first_name, $new_last_name, $new_gender, $new_bio, $new_location, $target_user_id);
+                $stmt->execute();
+                $stmt->close();
+            }
+        }
+
+        // Preserve user_id when staying on the user_detail page
+        $redirect = '/features/admin/admin.php?page=' . urlencode($page);
+        if ($page === 'user_detail' && $target_user_id > 0) {
+            $redirect .= '&user_id=' . $target_user_id;
+        }
+        header('Location: ' . $redirect);
         exit;
     }
 }
@@ -262,12 +331,14 @@ if (isset($_SESSION['admin_error'])) {
                 $view_user_id = (int) ($_GET['user_id'] ?? 0);
                 $view_user = null;
                 $user_messages = [];
+                $user_photos = [];
+                $user_comments = [];
 
                 if ($view_user_id > 0) {
                     // Fetch user info
                     $stmt = $conn->prepare("
                         SELECT u.user_id, u.email, u.user_type, u.account_status, u.suspended_until, u.created_at,
-                               p.first_name, p.last_name
+                               p.first_name, p.last_name, p.gender, p.user_bio, p.general_location
                         FROM Users u
                         LEFT JOIN User_Profile p ON u.user_id = p.user_id
                         WHERE u.user_id = ?
@@ -288,6 +359,33 @@ if (isset($_SESSION['admin_error'])) {
                     $stmt->bind_param("i", $view_user_id);
                     $stmt->execute();
                     $user_messages = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                    $stmt->close();
+
+                    // Fetch this user's photos so admin can remove offensive ones
+                    $stmt = $conn->prepare("
+                        SELECT photo_id, photo_url, is_primary
+                        FROM User_Pictures
+                        WHERE user_id = ? AND is_removed = 0
+                        ORDER BY is_primary DESC, uploaded_at DESC
+                    ");
+                    $stmt->bind_param("i", $view_user_id);
+                    $stmt->execute();
+                    $user_photos = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                    $stmt->close();
+
+                    // Fetch profile comments this user has WRITTEN (mirrors Recent Messages logic)
+                    $stmt = $conn->prepare("
+                        SELECT fc.comment_id, fc.comment_text, fc.created_at,
+                               op.first_name AS owner_first, op.last_name AS owner_last
+                        FROM Friend_Comments fc
+                        LEFT JOIN User_Profile op ON op.user_id = fc.profile_owner_id
+                        WHERE fc.commenter_id = ?
+                        ORDER BY fc.created_at DESC
+                        LIMIT 50
+                    ");
+                    $stmt->bind_param("i", $view_user_id);
+                    $stmt->execute();
+                    $user_comments = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
                     $stmt->close();
                 }
                 ?>
@@ -310,24 +408,83 @@ if (isset($_SESSION['admin_error'])) {
                         <p><strong>Joined:</strong> <?php echo htmlspecialchars($view_user['created_at'], ENT_QUOTES, 'UTF-8'); ?></p>
                     </div>
 
-                    <!-- Edit Profile (e.g. change offensive name) -->
+                    <!-- Edit Profile (admin override for any User_Profile field) -->
                     <?php if ($view_user['user_type'] !== 'administrator'): ?>
                         <div class="user-detail-card mb-4">
                             <p><strong>Edit Profile</strong></p>
-                            <form method="POST" class="d-flex gap-2 align-items-end">
+                            <form method="POST" class="admin-edit-form">
                                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                                 <input type="hidden" name="action" value="edit_profile">
                                 <input type="hidden" name="user_id" value="<?php echo (int) $view_user['user_id']; ?>">
-                                <div>
+                                <div class="admin-edit-row">
                                     <label class="form-label">First Name</label>
-                                    <input type="text" name="first_name" class="form-control" value="<?php echo htmlspecialchars($view_user['first_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                    <input type="text" name="first_name" class="form-control" required value="<?php echo htmlspecialchars($view_user['first_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
                                 </div>
-                                <div>
+                                <div class="admin-edit-row">
                                     <label class="form-label">Last Name</label>
-                                    <input type="text" name="last_name" class="form-control" value="<?php echo htmlspecialchars($view_user['last_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                    <input type="text" name="last_name" class="form-control" required value="<?php echo htmlspecialchars($view_user['last_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                </div>
+                                <div class="admin-edit-row">
+                                    <label class="form-label">Gender</label>
+                                    <select name="gender" class="form-control">
+                                        <?php $g = $view_user['gender'] ?? ''; ?>
+                                        <option value="" <?php echo $g === '' ? 'selected' : ''; ?>>Prefer not to say</option>
+                                        <option value="male" <?php echo $g === 'male' ? 'selected' : ''; ?>>Male</option>
+                                        <option value="female" <?php echo $g === 'female' ? 'selected' : ''; ?>>Female</option>
+                                        <option value="non-binary" <?php echo $g === 'non-binary' ? 'selected' : ''; ?>>Non-binary</option>
+                                    </select>
+                                </div>
+                                <div class="admin-edit-row">
+                                    <label class="form-label">Location</label>
+                                    <input type="text" name="general_location" class="form-control" value="<?php echo htmlspecialchars($view_user['general_location'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                </div>
+                                <div class="admin-edit-row admin-edit-row--full">
+                                    <label class="form-label">Bio</label>
+                                    <textarea name="user_bio" class="form-control" rows="3" maxlength="500"><?php echo htmlspecialchars($view_user['user_bio'] ?? '', ENT_QUOTES, 'UTF-8'); ?></textarea>
                                 </div>
                                 <button type="submit" class="button-secondary admin-action-btn">Save</button>
                             </form>
+                        </div>
+
+                        <!-- Edit Email (separate form because email lives on the Users table) -->
+                        <div class="user-detail-card mb-4">
+                            <p><strong>Edit Email</strong></p>
+                            <form method="POST" class="d-flex gap-2 align-items-end">
+                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
+                                <input type="hidden" name="action" value="edit_email">
+                                <input type="hidden" name="user_id" value="<?php echo (int) $view_user['user_id']; ?>">
+                                <div class="flex-grow-1">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" name="email" class="form-control" required value="<?php echo htmlspecialchars($view_user['email'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                </div>
+                                <button type="submit" class="button-secondary admin-action-btn">Save</button>
+                            </form>
+                        </div>
+
+                        <!-- Photos: each thumbnail has its own remove form -->
+                        <div class="user-detail-card mb-4">
+                            <p><strong>Photos</strong></p>
+                            <?php if (count($user_photos) > 0): ?>
+                                <div class="admin-photos-grid">
+                                    <?php foreach ($user_photos as $photo): ?>
+                                        <div class="admin-photo-thumb">
+                                            <img src="/Uploads/<?php echo htmlspecialchars($photo['photo_url'], ENT_QUOTES, 'UTF-8'); ?>" alt="User photo">
+                                            <?php if ((int) $photo['is_primary'] === 1): ?>
+                                                <span class="admin-photo-badge">Primary</span>
+                                            <?php endif; ?>
+                                            <form method="POST">
+                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
+                                                <input type="hidden" name="action" value="delete_photo">
+                                                <input type="hidden" name="user_id" value="<?php echo (int) $view_user['user_id']; ?>">
+                                                <input type="hidden" name="photo_id" value="<?php echo (int) $photo['photo_id']; ?>">
+                                                <button type="submit" class="admin-action-btn">Remove</button>
+                                            </form>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php else: ?>
+                                <p class="empty-message">No photos.</p>
+                            <?php endif; ?>
                         </div>
 
                         <!-- Account Actions -->
@@ -397,6 +554,43 @@ if (isset($_SESSION['admin_error'])) {
                             </table>
                         <?php else: ?>
                             <p class="empty-message">No messages found.</p>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- Profile Comments this user has written (Friend_Comments) -->
+                    <div class="user-detail-card mt-4">
+                        <p><strong>Profile Comments Written</strong></p>
+                        <?php if (count($user_comments) > 0): ?>
+                            <table class="admin-table">
+                                <thead>
+                                    <tr>
+                                        <th>Comment</th>
+                                        <th>On Profile Of</th>
+                                        <th>Posted At</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($user_comments as $comment): ?>
+                                        <tr>
+                                            <td><?php echo htmlspecialchars($comment['comment_text'], ENT_QUOTES, 'UTF-8'); ?></td>
+                                            <td><?php echo htmlspecialchars(($comment['owner_first'] ?? '') . ' ' . ($comment['owner_last'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></td>
+                                            <td><?php echo htmlspecialchars($comment['created_at'], ENT_QUOTES, 'UTF-8'); ?></td>
+                                            <td>
+                                                <form method="POST" class="d-inline">
+                                                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
+                                                    <input type="hidden" name="action" value="delete_comment">
+                                                    <input type="hidden" name="user_id" value="<?php echo (int) $view_user['user_id']; ?>">
+                                                    <input type="hidden" name="comment_id" value="<?php echo (int) $comment['comment_id']; ?>">
+                                                    <button type="submit" class="admin-action-btn">Remove</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        <?php else: ?>
+                            <p class="empty-message">No comments written.</p>
                         <?php endif; ?>
                     </div>
 

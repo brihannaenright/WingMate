@@ -210,3 +210,49 @@
 .message-removed {
     opacity: 0.5;
 }
+
+/* Admin edit-profile form: simple grid so fields wrap on narrow screens */
+.admin-edit-form {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    align-items: end;
+}
+
+.admin-edit-row--full {
+    grid-column: 1 / -1;
+}
+
+/* Admin photo thumbnails with remove button below each */
+.admin-photos-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.admin-photo-thumb {
+    position: relative;
+    width: 120px;
+}
+
+.admin-photo-thumb img {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.admin-photo-thumb form {
+    margin-top: 6px;
+}
+
+.admin-photo-badge {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    background-color: var(--wm-button-primary);
+    color: #FFFFFF;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+}
