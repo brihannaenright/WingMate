@@ -184,6 +184,137 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['success' => true, 'general_location' => $generalLocation]);
         exit;
     }
+
+    if ($action === 'delete_account') {
+        // Hard delete: remove all rows referencing this user across every table, in
+        // child-first order so FK constraints don't fire. Wrapped in a transaction so a
+        // mid-flight failure doesn't leave a half-deleted account.
+        header('Content-Type: application/json');
+
+        // Require password re-entry: a logged-in session alone shouldn't be enough to wipe an account
+        $submittedPassword = (string) ($_POST['password'] ?? '');
+        $stmt = $conn->prepare("SELECT password_hash FROM Users WHERE user_id = ?");
+        $stmt->bind_param('i', $current_user_id);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$row || !password_verify($submittedPassword, $row['password_hash'])) {
+            echo json_encode(['success' => false, 'error' => 'Incorrect password']);
+            exit;
+        }
+
+        // 1. Unlink photo files from disk before deleting DB rows
+        $stmt = $conn->prepare("SELECT photo_url FROM User_Pictures WHERE user_id = ?");
+        $stmt->bind_param('i', $current_user_id);
+        $stmt->execute();
+        $photos = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+        foreach ($photos as $photo) {
+            $filePath = __DIR__ . '/../../Uploads/' . $photo['photo_url'];
+            if (file_exists($filePath)) {
+                @unlink($filePath);
+            }
+        }
+
+        // 2. Wipe all DB rows referencing this user, children-first
+        $conn->begin_transaction();
+        try {
+            // Friend_Votes: votes this user cast, plus votes on requests they were part of
+            $stmt = $conn->prepare("DELETE FROM Friend_Votes WHERE friend_voter_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM Friend_Votes WHERE request_id IN (SELECT request_id FROM Match_Requests WHERE match_owner_id = ? OR matched_user_id = ?)");
+            $stmt->bind_param('ii', $current_user_id, $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            // Decision rows tied to this user's match requests
+            $stmt = $conn->prepare("DELETE FROM Decision WHERE match_request_id IN (SELECT request_id FROM Match_Requests WHERE match_owner_id = ? OR matched_user_id = ?)");
+            $stmt->bind_param('ii', $current_user_id, $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM Match_Requests WHERE match_owner_id = ? OR matched_user_id = ?");
+            $stmt->bind_param('ii', $current_user_id, $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM Matches WHERE user1_id = ? OR user2_id = ?");
+            $stmt->bind_param('ii', $current_user_id, $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM User_Swipe WHERE liker_id = ? OR liked_id = ?");
+            $stmt->bind_param('ii', $current_user_id, $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM Friendship WHERE user_id = ? OR friend_id = ?");
+            $stmt->bind_param('ii', $current_user_id, $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM Notifications WHERE recipient_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM Friend_Comments WHERE commenter_id = ? OR profile_owner_id = ?");
+            $stmt->bind_param('ii', $current_user_id, $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            // Message_Receipts: receipts the user owns, plus receipts on messages they sent
+            $stmt = $conn->prepare("DELETE FROM Message_Receipts WHERE receiver_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM Message_Receipts WHERE message_id IN (SELECT message_id FROM Messages WHERE sender_id = ?)");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM Messages WHERE sender_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            // User leaves all chats (orphaned chats stay; cleanup is admin's call)
+            $stmt = $conn->prepare("DELETE FROM Chat_Members WHERE user_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM User_Reports WHERE reporter_id = ? OR reported_id = ?");
+            $stmt->bind_param('ii', $current_user_id, $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM User_Blocks WHERE blocker_id = ? OR blocked_id = ?");
+            $stmt->bind_param('ii', $current_user_id, $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM Password_Resets WHERE user_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM User_Tags WHERE user_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM User_Preferences WHERE user_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM User_Pictures WHERE user_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM User_Profile WHERE user_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $stmt = $conn->prepare("DELETE FROM Users WHERE user_id = ?");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute(); $stmt->close();
+
+            $conn->commit();
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            $conn->rollback();
+            echo json_encode(['success' => false, 'error' => 'Deletion failed']);
+        }
+        exit;
+    }
 }
 
 // Fetch profile data
@@ -305,6 +436,39 @@ include __DIR__ . '/../../includes/nav-header.php';
                 </div>
             </div>
             <button type="button" class="btn profile-btn-upload" onclick="openTagPickerModal()">Edit</button>
+        </div>
+
+        <!-- Delete Account: irreversible self-serve action -->
+        <div class="settings-section">
+            <div class="settings-section-body">
+                <div class="settings-field-label">Delete Account</div>
+                <p class="settings-field-row">Permanently disable your account. You won't be able to log back in.</p>
+            </div>
+            <button type="button" class="btn profile-btn-remove" onclick="openDeleteAccountModal()">Delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Account Confirmation Modal -->
+<div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content profile-modal-content">
+            <div class="modal-header profile-modal-header">
+                <h5 class="modal-title">Delete Account</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete your account? This action cannot be undone — you will not be able to log back in.</p>
+                <div class="mb-2">
+                    <label for="deleteAccountPassword" class="form-label profile-modal-label">Confirm your password</label>
+                    <input type="password" class="form-control profile-modal-input" id="deleteAccountPassword" autocomplete="current-password">
+                    <div id="deleteAccountError" class="form-text text-danger" style="display:none;"></div>
+                </div>
+            </div>
+            <div class="modal-footer profile-modal-footer">
+                <button type="button" class="btn profile-btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn profile-btn-remove" onclick="deleteAccount()">Delete My Account</button>
+            </div>
         </div>
     </div>
 </div>
@@ -819,6 +983,50 @@ include __DIR__ . '/../../includes/nav-header.php';
             .finally(() => {
                 btn.disabled = false;
                 btn.textContent = 'Confirm Location';
+            });
+    }
+
+    // --- Delete account ---
+    function openDeleteAccountModal() {
+        document.getElementById('deleteAccountPassword').value = '';
+        document.getElementById('deleteAccountError').style.display = 'none';
+        new bootstrap.Modal(document.getElementById('deleteAccountModal')).show();
+    }
+
+    function deleteAccount() {
+        const passwordInput = document.getElementById('deleteAccountPassword');
+        const errorEl = document.getElementById('deleteAccountError');
+        const password = passwordInput.value;
+        if (!password) {
+            errorEl.textContent = 'Please enter your password.';
+            errorEl.style.display = '';
+            return;
+        }
+
+        const btn = document.querySelector('#deleteAccountModal .profile-btn-remove');
+        if (btn?.disabled) return;
+        if (btn) { btn.disabled = true; btn.textContent = 'Deleting...'; }
+        errorEl.style.display = 'none';
+
+        const formData = new FormData();
+        formData.append('action', 'delete_account');
+        formData.append('password', password);
+
+        fetch(window.location.pathname, { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = '/features/auth/logout.php';
+                } else {
+                    errorEl.textContent = data.error || 'Failed to delete';
+                    errorEl.style.display = '';
+                    if (btn) { btn.disabled = false; btn.textContent = 'Delete My Account'; }
+                }
+            })
+            .catch(err => {
+                errorEl.textContent = 'Error: ' + err.message;
+                errorEl.style.display = '';
+                if (btn) { btn.disabled = false; btn.textContent = 'Delete My Account'; }
             });
     }
 </script>
