@@ -326,24 +326,23 @@
 
     /* Bottom-left card: contains tags sidebar + friends survey */
     .profile-tags-card {
-        grid-column: 1 / 2;
+        grid-column: 1 / 3;
         grid-row: 2 / 3;
         display: grid;
-        grid-template-columns: auto 1fr;
+        grid-template-columns: 1fr 1.2fr;
         gap: 24px;
     }
 
-    /* Left column of tags card — vertical list of adjective pills */
+    /* Left column of tags card — 3-column grid of adjective pills */
     .profile-tags-sidebar {
         background: var(--profile-card-bg);
         border-radius: var(--profile-card-radius);
         padding: 24px 20px;
         box-shadow: var(--profile-card-shadow);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        align-items: start;
         gap: 12px;
-        min-width: 150px;
     }
 
     /* "About Me" heading in the tags sidebar */
@@ -353,6 +352,8 @@
         font-weight: 700;
         color: #1A1A1A;
         margin: 0;
+        grid-column: 1 / -1;
+        text-align: center;
     }
 
     /* Base style for tag pills (Funny, Gym, etc.) */
@@ -516,96 +517,6 @@
     .profile-friend-quote::before {
         content: "⭐";
         flex-shrink: 0;
-    }
-
-    /* Bottom-right card: "Looking For" preferences on pink background */
-    .profile-looking-card {
-        grid-column: 2 / 3;
-        grid-row: 2 / 3;
-        background: var(--profile-pink);
-        border-radius: var(--profile-card-radius);
-        padding: 35px 25px;
-        box-shadow: var(--profile-card-shadow);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-    }
-
-    /* "Looking For" section heading */
-    .profile-looking-title {
-        font-family: var(--wm-font-family);
-        font-size: 20px;
-        font-weight: 700;
-        color: #FFFFFF;
-        margin: 0 0 18px;
-        text-align: center;
-    }
-
-    /* Flex container for "Looking For" preference pills */
-    .profile-looking-pills {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        justify-content: center;
-    }
-
-    /* Individual "Looking For" pill (white outline on pink) */
-    .profile-looking-pill {
-        display: inline-flex;
-        align-items: center;
-        padding: 8px 20px;
-        border-radius: var(--profile-pill-radius);
-        font-family: var(--wm-font-family);
-        font-size: 13px;
-        font-weight: 600;
-        border: 1.5px solid rgba(255, 255, 255, 0.5);
-        color: #FFFFFF;
-        background: rgba(255, 255, 255, 0.12);
-        cursor: default;
-        transition: background var(--profile-transition), transform var(--profile-transition);
-    }
-
-    /* "Looking For" pill hover — brighter background */
-    .profile-looking-pill:hover {
-        background: rgba(255, 255, 255, 0.22);
-        transform: translateY(-1px);
-    }
-
-    /* Empty-state text when user hasn't picked any Looking For tags yet */
-    .profile-looking-empty {
-        color: rgba(255, 255, 255, 0.9);
-        font-size: 14px;
-        font-style: italic;
-    }
-
-    .profile-looking-empty a {
-        color: #FFFFFF;
-        text-decoration: underline;
-        font-weight: 600;
-    }
-
-    /* Round "+" button to add a new "Looking For" item */
-    .profile-looking-add {
-        width: 34px;
-        height: 34px;
-        border-radius: 50%;
-        border: 1.5px solid rgba(255, 255, 255, 0.5);
-        background: rgba(255, 255, 255, 0.12);
-        color: #FFFFFF;
-        font-size: 20px;
-        font-weight: 300;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: background var(--profile-transition), transform var(--profile-transition);
-    }
-
-    /* "Looking For" add button hover */
-    .profile-looking-add:hover {
-        background: rgba(255, 255, 255, 0.3);
-        transform: scale(1.1);
     }
 
     /* ========== FRIEND COMMENTS SECTION STYLES ========== */
@@ -968,12 +879,6 @@
             min-height: 280px;
         }
 
-        /* "Looking For" card takes full width on mobile */
-        .profile-looking-card {
-            grid-column: 1 / 2;
-            grid-row: auto;
-        }
-
         /* Banner stacks vertically and centres on mobile */
         .profile-banner {
             flex-direction: column;
@@ -1036,8 +941,7 @@
     .profile-banner,
     .profile-photos-card,
     .profile-tags-card,
-    .profile-friends-card,
-    .profile-looking-card {
+    .profile-friends-card{
         animation: fadeInUp 0.5s ease both;
     }
 
@@ -1054,11 +958,6 @@
     /* Staggered animation delay — friends card */
     .profile-friends-card {
         animation-delay: 0.16s;
-    }
-
-    /* Staggered animation delay — looking-for card */
-    .profile-looking-card {
-        animation-delay: 0.24s;
     }
 
     /* Modal card container — rounded with shadow */
@@ -1282,28 +1181,6 @@
 
     /* Unselected tag pill hover */
     .profile-pill--unselected:hover {
-        border-color: var(--profile-pink);
-        color: var(--profile-pink);
-    }
-
-    /* Selected looking-for pill in picker */
-    .profile-looking-pill--selected {
-        background: var(--profile-pink);
-        border: 1.5px solid var(--profile-pink);
-        color: #fff;
-        cursor: pointer;
-    }
-
-    /* Unselected looking-for pill in picker */
-    .profile-looking-pill--unselected {
-        background: transparent;
-        border: 1.5px solid #ddd;
-        color: #666;
-        cursor: pointer;
-    }
-
-    /* Unselected looking-for pill hover */
-    .profile-looking-pill--unselected:hover {
         border-color: var(--profile-pink);
         color: var(--profile-pink);
     }

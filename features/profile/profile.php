@@ -52,21 +52,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isOwnProfile) {
     if ($action === 'update_tags') {
         header('Content-Type: application/json');
         $tagIds = json_decode($_POST['tag_ids'] ?? '[]', true);
-        $selectionType = $_POST['selection_type'] ?? '';
 
-        // Looking_for tags are managed from the settings page; profile only handles about_me
-        if ($selectionType !== 'about_me') {
-            echo json_encode(['success' => false, 'error' => 'Invalid selection type']);
-            exit;
-        }
+        // Profile only handles about_me tags (looking_for tags are managed from settings)
+        $selectionType = 'about_me';
 
-        // Remove existing tags for this user and selection type
+        // Remove existing about_me tags for this user
         $stmt = $conn->prepare("DELETE FROM User_Tags WHERE user_id = ? AND selection_type = ?");
         $stmt->bind_param('is', $current_user_id, $selectionType);
         $stmt->execute();
         $stmt->close();
 
-        // Insert new selections
+        // Insert new about_me tag selections
         if (!empty($tagIds)) {
             $stmt = $conn->prepare("INSERT INTO User_Tags (user_id, tag_id, selection_type) VALUES (?, ?, ?)");
             foreach ($tagIds as $tagId) {
@@ -263,24 +259,18 @@ while ($row = $result->fetch_assoc()) {
     $allTags[] = $row;
 }
 
-// Fetch user's selected tags split by selection_type
+// Fetch user's "about_me" tags
 $aboutMeTagIds = [];
-$lookingForTagIds = [];
-$stmt = $conn->prepare("SELECT tag_id, selection_type FROM User_Tags WHERE user_id = ?");
+$stmt = $conn->prepare("SELECT tag_id FROM User_Tags WHERE user_id = ? AND selection_type = 'about_me'");
 $stmt->bind_param('i', $profile_user_id);
 $stmt->execute();
 $result = $stmt->get_result();
 while ($row = $result->fetch_assoc()) {
-    if ($row['selection_type'] === 'about_me') {
-        $aboutMeTagIds[] = (int)$row['tag_id'];
-    } elseif ($row['selection_type'] === 'looking_for') {
-        $lookingForTagIds[] = (int)$row['tag_id'];
-    }
+    $aboutMeTagIds[] = (int)$row['tag_id'];
 }
 $stmt->close();
 
 $userAboutMeTags = array_filter($allTags, fn($t) => in_array((int)$t['tag_id'], $aboutMeTagIds));
-$userLookingForTags = array_filter($allTags, fn($t) => in_array((int)$t['tag_id'], $lookingForTagIds));
 
 // Fetch user's photos
 $userPhotos = [];
@@ -427,21 +417,7 @@ if ($isOwnProfile || $isFriend) {
                 </div>
             </div>
         </div>
-
-        <!-- Bottom-Right Card: Looking For - read-only, edit in Settings -->
-        <div class="profile-looking-card" id="profileLookingForPills">
-            <h3 class="profile-looking-title">Looking For</h3>
-            <div class="profile-looking-pills" id="lookingForPills">
-                <?php if (empty($userLookingForTags)): ?>
-                    <span class="profile-looking-empty">Edit in <a href="/features/settings/settings.php">Settings</a></span>
-                <?php else: ?>
-                    <?php foreach ($userLookingForTags as $tag): ?>
-                        <span class="profile-looking-pill"><?php echo htmlspecialchars($tag['tag_name']); ?></span>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </div>
-        </div>
-    </div>
+    </div>    
 
     <!-- Bio/Location Edit Modal -->
     <div class="modal fade" id="bioModal" tabindex="-1" aria-labelledby="bioModalLabel" aria-hidden="true">
@@ -582,7 +558,6 @@ if ($isOwnProfile || $isFriend) {
 <script>
     const allTags = <?php echo json_encode($allTags); ?>;
     const aboutMeTagIds = <?php echo json_encode(array_values($aboutMeTagIds)); ?>;
-    const lookingForTagIds = <?php echo json_encode(array_values($lookingForTagIds)); ?>;
     
         // Carousel photos 
     const userPhotos = <?php echo json_encode(array_values($userPhotos)); ?>;
