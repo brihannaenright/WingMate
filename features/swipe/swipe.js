@@ -7,9 +7,8 @@ const el = {
     location: document.querySelector('.swipe-location'),
     bio: document.querySelector('.swipe-bio'),
     gender: document.querySelector('.swipe-gender'),
-    carouselImg: document.querySelector('.swipe-photo-main'),
+    carousel: document.getElementById('swipePhotoCarousel'),
     carouselEmpty: document.querySelector('.swipe-photo-empty'),
-    dots: document.querySelector('.swipe-photo-dots'),
     aboutMe: document.querySelector('.swipe-tags-sidebar'),
     lookingFor: document.querySelector('.swipe-looking-pills'),
     relationshipType: document.querySelector('.swipe-relationship-type'),
@@ -29,7 +28,6 @@ const GENDER_LABELS = {
 
 let swipeDeck = (typeof swipeCandidates !== 'undefined' ? swipeCandidates : []).slice();
 let swipeCardIndex = 0;
-let swipePhotoIndex = 0;
 
 function currentCandidate() {
     return swipeDeck[swipeCardIndex] || null;
@@ -72,13 +70,12 @@ function swipeRender() {
         el.avatar.style.display = 'none';
     }
 
-    swipePhotoIndex = 0;
     renderCarousel();
 
     el.aboutMe.innerHTML = '<h4 class="swipe-tags-title">About Me</h4>';
     c.about_me_tags.forEach((name, i) => {
         const pill = document.createElement('span');
-        pill.className = 'swipe-pill swipe-pill--' + (i % 2 === 0 ? 'pink' : 'orange');
+        pill.className = 'badge rounded-pill swipe-pill swipe-pill--' + (i % 2 === 0 ? 'pink' : 'orange');
         pill.textContent = name;
         el.aboutMe.appendChild(pill);
     });
@@ -95,47 +92,56 @@ function swipeRender() {
     el.lookingFor.innerHTML = '';
     c.looking_for_tags.forEach(name => {
         const pill = document.createElement('span');
-        pill.className = 'swipe-looking-pill';
+        pill.className = 'badge rounded-pill swipe-looking-pill';
         pill.textContent = name;
         el.lookingFor.appendChild(pill);
     });
 }
 
 function renderCarousel() {
+    if (!el.carousel) return;
     const c = currentCandidate();
     const photos = c ? c.photos : [];
+    const inner = el.carousel.querySelector('.carousel-inner');
+    const indicators = el.carousel.querySelector('.carousel-indicators');
+
+    if (typeof bootstrap !== 'undefined') {
+        const existing = bootstrap.Carousel.getInstance(el.carousel);
+        if (existing) existing.dispose();
+    }
+
+    inner.innerHTML = '';
+    indicators.innerHTML = '';
+
     if (photos.length === 0) {
-        el.carouselImg.style.display = 'none';
+        el.carousel.style.display = 'none';
         el.carouselEmpty.style.display = '';
-        el.dots.innerHTML = '';
         return;
     }
-    el.carouselImg.style.display = '';
-    el.carouselImg.src = photos[swipePhotoIndex].photo_url;
+    el.carousel.style.display = '';
     el.carouselEmpty.style.display = 'none';
-    el.dots.innerHTML = photos.map((_, i) =>
-        `<span class="swipe-photo-dot${i === swipePhotoIndex ? ' active' : ''}" data-photo-index="${i}"></span>`
-    ).join('');
-    el.dots.querySelectorAll('.swipe-photo-dot').forEach(dot => {
-        dot.addEventListener('click', () => {
-            swipePhotoIndex = parseInt(dot.dataset.photoIndex, 10);
-            renderCarousel();
-        });
+
+    photos.forEach((p, i) => {
+        const item = document.createElement('div');
+        item.className = 'carousel-item' + (i === 0 ? ' active' : '');
+        const img = document.createElement('img');
+        img.src = p.photo_url;
+        img.className = 'd-block w-100 swipe-photo-img';
+        img.alt = '';
+        item.appendChild(img);
+        inner.appendChild(item);
+
+        const indicator = document.createElement('button');
+        indicator.type = 'button';
+        indicator.dataset.bsTarget = '#swipePhotoCarousel';
+        indicator.dataset.bsSlideTo = String(i);
+        indicator.setAttribute('aria-label', 'Slide ' + (i + 1));
+        if (i === 0) {
+            indicator.className = 'active';
+            indicator.setAttribute('aria-current', 'true');
+        }
+        indicators.appendChild(indicator);
     });
-}
-
-function nextPhoto() {
-    const photos = currentCandidate()?.photos || [];
-    if (photos.length === 0) return;
-    swipePhotoIndex = (swipePhotoIndex + 1) % photos.length;
-    renderCarousel();
-}
-
-function prevPhoto() {
-    const photos = currentCandidate()?.photos || [];
-    if (photos.length === 0) return;
-    swipePhotoIndex = (swipePhotoIndex - 1 + photos.length) % photos.length;
-    renderCarousel();
 }
 
 let isSwipeInFlight = false;
@@ -179,8 +185,5 @@ function swipeAction(type) {
 
 document.querySelector('.swipe-btn--skip').addEventListener('click', () => swipeAction('dislike'));
 document.querySelector('.swipe-btn--match').addEventListener('click', () => swipeAction('like'));
-const arrows = document.querySelectorAll('.swipe-photo-arrow');
-arrows[0].addEventListener('click', prevPhoto);
-arrows[1].addEventListener('click', nextPhoto);
 
 swipeRender();

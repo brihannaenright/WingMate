@@ -256,15 +256,20 @@ if (!$locationMissing && !$friendsMissing && !$prefsIncomplete) {
             FROM User_Profile c
             WHERE c.user_id != ?
               AND TIMESTAMPDIFF(YEAR, c.date_of_birth, CURDATE()) BETWEEN ? AND ?
-              AND c.latitude IS NOT NULL AND c.longitude IS NOT NULL
               AND c.user_id NOT IN (SELECT liked_id FROM User_Swipe WHERE liker_id = ?)
               AND c.user_id NOT IN (SELECT blocked_id FROM User_Blocks WHERE blocker_id = ?)
-              AND c.user_id NOT IN (SELECT blocker_id FROM User_Blocks WHERE blocked_id = ?)";
+              AND c.user_id NOT IN (SELECT blocker_id FROM User_Blocks WHERE blocked_id = ?)
+              AND c.user_id NOT IN (
+                  SELECT CASE WHEN user_id = ? THEN friend_id ELSE user_id END
+                  FROM Friendship
+                  WHERE status = 'accepted' AND (user_id = ? OR friend_id = ?)
+              )";
 
-    $types = 'dddiiiiii';
+    $types = 'dddiiiiiiiii';
     $params = [$viewerLat, $viewerLng, $viewerLat,
                $current_user_id,
                $minAge, $maxAge,
+               $current_user_id, $current_user_id, $current_user_id,
                $current_user_id, $current_user_id, $current_user_id];
 
     if ($prefGender !== null && $prefGender !== '') {
@@ -355,12 +360,12 @@ if (!$locationMissing && !$friendsMissing && !$prefsIncomplete) {
 <div class="swipe-page">
 
     <?php if ($locationMissing): ?>
-        <div class="alert-wingmate">
+        <div class="alert alert-wingmate">
             Set your location in <a href="/features/settings/settings.php">Settings</a> before swiping.
         </div>
     <?php endif; ?>
     <?php if ($friendsMissing): ?>
-        <div class="alert-wingmate">
+        <div class="alert alert-wingmate">
             Add at least one <a href="/features/friends/friends.php">friend</a> before swiping.
         </div>
     <?php endif; ?>
@@ -449,61 +454,82 @@ if (!$locationMissing && !$friendsMissing && !$prefsIncomplete) {
                 </div>
             </div>
 
-            <button type="submit" class="button-secondary settings-save-btn">Save Preferences</button>
+            <button type="submit" class="btn btn-secondary settings-save-btn">Save Preferences</button>
         </form>
     </details>
 
     <?php if (!$locationMissing && !$friendsMissing && !$prefsIncomplete): ?>
         <div class="swipe-container"<?php echo empty($candidatesList) ? ' style="display:none;"' : ''; ?>>
+            <div class="row g-4">
 
-            <!-- 1. Banner (Top Left) -->
-            <div class="swipe-banner">
-                <div class="swipe-banner-bg"></div>
-                <div class="swipe-avatar-wrapper">
-                    <img src="" alt="Profile photo" class="swipe-avatar">
-                </div>
-                <div class="swipe-info-card">
-                    <h1 class="swipe-name-age"></h1>
-                    <div class="swipe-location">
-                        <span class="swipe-location-icon"></span>
+                <!-- 1. Banner (top-left) -->
+                <div class="col-12 col-md-6 col-lg-7">
+                    <div class="swipe-banner h-100">
+                        <div class="swipe-banner-bg"></div>
+                        <div class="swipe-avatar-wrapper">
+                            <img src="" alt="Profile photo" class="swipe-avatar">
+                        </div>
+                        <div class="card swipe-info-card">
+                            <h1 class="swipe-name-age"></h1>
+                            <div class="swipe-location">
+                                <span class="swipe-location-icon"></span>
+                            </div>
+                            <div class="swipe-gender"></div>
+                            <p class="swipe-bio"></p>
+                        </div>
                     </div>
-                    <div class="swipe-gender"></div>
-                    <p class="swipe-bio"></p>
                 </div>
+
+                <!-- 2. Photo Carousel (top-right) -->
+                <div class="col-12 col-md-6 col-lg-5">
+                    <div class="swipe-photos-card">
+                        <div id="swipePhotoCarousel" class="carousel slide swipe-photo-carousel" data-bs-ride="false" data-bs-interval="false">
+                            <div class="carousel-indicators"></div>
+                            <div class="carousel-inner"></div>
+                            <button class="carousel-control-prev" type="button" data-bs-target="#swipePhotoCarousel" data-bs-slide="prev">
+                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                <span class="visually-hidden">Previous</span>
+                            </button>
+                            <button class="carousel-control-next" type="button" data-bs-target="#swipePhotoCarousel" data-bs-slide="next">
+                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                <span class="visually-hidden">Next</span>
+                            </button>
+                        </div>
+                        <div class="swipe-photo-empty"></div>
+                    </div>
+                </div>
+
+                <!-- 3. Tags + Friends (bottom-left) -->
+                <div class="col-12 col-md-6 col-lg-7">
+                    <div class="swipe-tags-card row g-4">
+                        <div class="col-12 col-lg-auto">
+                            <div class="card swipe-tags-sidebar h-100">
+                                <h4 class="swipe-tags-title">About Me</h4>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg">
+                            <div class="card swipe-friends-card h-100">
+                                <h3 class="swipe-friends-title">What My Friends Say About Me</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Looking For (bottom-right) -->
+                <div class="col-12 col-md-6 col-lg-5">
+                    <div class="card swipe-looking-card h-100">
+                        <h3 class="swipe-looking-title">Looking For</h3>
+                        <div class="swipe-relationship-type"></div>
+                        <div class="swipe-looking-pills"></div>
+                    </div>
+                </div>
+
             </div>
 
-            <!-- 2. Photo Carousel (Top Right) -->
-            <div class="swipe-photos-card">
-                <img class="swipe-photo-main" src="" alt="" style="display:none;">
-                <div class="swipe-photo-empty"></div>
-                <div class="swipe-photo-dots"></div>
-                <div class="swipe-photo-nav">
-                    <button class="swipe-photo-arrow">&larr;</button>
-                    <button class="swipe-photo-arrow">&rarr;</button>
-                </div>
-            </div>
-
-            <!-- 3. Tags + Friends (Bottom Left) -->
-            <div class="swipe-tags-card">
-                <div class="swipe-tags-sidebar">
-                    <h4 class="swipe-tags-title">About Me</h4>
-                </div>
-                <div class="swipe-friends-card">
-                    <h3 class="swipe-friends-title">What My Friends Say About Me</h3>
-                </div>
-            </div>
-
-            <!-- 4. Looking For (Bottom Right) -->
-            <div class="swipe-looking-card">
-                <h3 class="swipe-looking-title">Looking For</h3>
-                <div class="swipe-relationship-type"></div>
-                <div class="swipe-looking-pills"></div>
-            </div>
-
-            <!-- 5. Skip / Match Buttons -->
+            <!-- 5. Skip / Match Buttons (fixed, outside the grid) -->
             <div class="swipe-actions">
-                <button class="swipe-btn swipe-btn--skip">Skip</button>
-                <button class="swipe-btn swipe-btn--match">Match</button>
+                <button class="btn btn-light rounded-pill swipe-btn--skip">Skip</button>
+                <button class="btn btn-primary rounded-pill swipe-btn--match">Match</button>
             </div>
 
         </div>
@@ -512,7 +538,7 @@ if (!$locationMissing && !$friendsMissing && !$prefsIncomplete) {
             <p>Adjust the filters above to widen your search.</p>
         </div>
     <?php elseif ($prefsIncomplete && !$locationMissing && !$friendsMissing): ?>
-        <div class="alert-wingmate">
+        <div class="alert alert-wingmate">
             Fill out your match filters above to start swiping.
         </div>
     <?php endif; ?>

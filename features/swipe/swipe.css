@@ -19,57 +19,14 @@
     padding: 30px 40px 120px;
 }
 
-/* Collapsible Match Filters panel */
-.swipe-filters {
-    max-width: 1200px;
-    margin: 0 auto 24px;
-    background: var(--swipe-card-bg);
-    border-radius: var(--swipe-card-radius);
-    box-shadow: var(--swipe-card-shadow);
-    padding: 16px 24px;
-}
-
-.swipe-filters-summary {
-    cursor: pointer;
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--swipe-pink);
-    list-style: none;
-    padding: 4px 0;
-}
-
-.swipe-filters-summary::-webkit-details-marker {
-    display: none;
-}
-
-.swipe-filters-summary::before {
-    content: '▸ ';
-    display: inline-block;
-    transition: transform var(--swipe-transition);
-}
-
-.swipe-filters[open] .swipe-filters-summary::before {
-    transform: rotate(90deg);
-}
-
-.swipe-filters-form {
-    margin-top: 16px;
-}
-
-/* Main 2-column grid layout for all swipe cards */
+/* Outer wrapper - centring + max width (Bootstrap row handles the grid) */
 .swipe-container {
-    display: grid;
-    grid-template-columns: 1.4fr 1fr;
-    grid-template-rows: auto auto;
-    gap: 24px;
     max-width: 1200px;
     margin: 0 auto;
 }
 
 /* Top-left card: pink banner with avatar + info */
 .swipe-banner {
-    grid-column: 1 / 2;
-    grid-row: 1 / 2;
     position: relative;
     border-radius: var(--swipe-card-radius);
     overflow: hidden;
@@ -132,17 +89,15 @@
     background: #FFF;
 }
 
-/* White card inside the banner that holds name, location, bio */
+/* White card inside the banner that holds name, location, bio - Bootstrap card + brand overrides */
 .swipe-info-card {
     position: relative;
     z-index: 2;
-    background: var(--swipe-card-bg);
+    border: 0;
     border-radius: 16px;
     padding: 24px 34px;
     margin: 24px 28px 24px 20px;
     flex: 1;
-    display: flex;
-    flex-direction: column;
     justify-content: center;
     box-shadow: 0 4px 22px rgba(0, 0, 0, 0.08);
 }
@@ -187,15 +142,13 @@
 
 /* Top-right card: orange photo carousel */
 .swipe-photos-card {
-    grid-column: 2 / 3;
-    grid-row: 1 / 2;
     border-radius: var(--swipe-card-radius);
     position: relative;
     background: var(--swipe-orange);
-    min-height: 520px;
+    height: 520px;
     display: flex;
     flex-direction: column;
-    padding: 18px 18px 75px 18px;
+    padding: 18px;
     box-shadow: var(--swipe-card-shadow);
 }
 
@@ -226,95 +179,50 @@
     padding: 20px;
 }
 
-/* Main carousel image */
-.swipe-photo-main {
+/* Bootstrap carousel inside the orange photos card */
+.swipe-photo-carousel {
+    flex: 1;
+    min-height: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    z-index: 2;
+    position: relative;
+}
+
+.swipe-photo-carousel .carousel-inner {
+    height: 100%;
+}
+
+.swipe-photo-carousel .carousel-item {
+    height: 100%;
+}
+
+.swipe-photo-img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    display: block;
-    border-radius: 12px;
-    flex: 1;
 }
 
-/* Container for the carousel navigation dots */
-.swipe-photo-dots {
-    position: absolute;
-    top: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 8px;
-    z-index: 3;
-}
-
-/* Individual carousel dot */
-.swipe-photo-dot {
+.swipe-photo-carousel .carousel-indicators [data-bs-target] {
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.5);
-    cursor: pointer;
-    transition: background var(--swipe-transition);
+    background-color: rgba(255, 255, 255, 0.5);
+    border: none;
+    margin: 0 4px;
+    opacity: 1;
 }
 
-/* Active carousel dot - solid white */
-.swipe-photo-dot.active {
-    background: #FFFFFF;
+.swipe-photo-carousel .carousel-indicators .active {
+    background-color: #ffffff;
 }
 
-/* Bottom bar holding prev/next arrow buttons */
-.swipe-photo-nav {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 75px;
-    display: flex;
-    gap: 15px;
-    z-index: 3;
-    align-items: center;
-    justify-content: center;
-}
-
-/* Circular prev/next arrow button */
-.swipe-photo-arrow {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.25);
-    border: 1.5px solid rgba(255, 255, 255, 0.6);
-    color: #FFFFFF;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    font-size: 16px;
-    transition: background var(--swipe-transition), transform var(--swipe-transition);
-}
-
-/* Arrow button hover - brighter background */
-.swipe-photo-arrow:hover {
-    background: rgba(255, 255, 255, 0.45);
-    transform: scale(1.1);
-}
-
-/* Bottom-left card: contains tags sidebar + friends survey */
-.swipe-tags-card {
-    grid-column: 1 / 2;
-    grid-row: 2 / 3;
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 24px;
-}
-
-/* Left column of tags card - vertical list of adjective pills */
+/* Left column of tags card - vertical list of adjective pills - Bootstrap card + brand overrides */
 .swipe-tags-sidebar {
-    background: var(--swipe-card-bg);
+    border: 0;
     border-radius: var(--swipe-card-radius);
     padding: 24px 20px;
     box-shadow: var(--swipe-card-shadow);
-    display: flex;
-    flex-direction: column;
     align-items: center;
     gap: 12px;
     min-width: 150px;
@@ -329,46 +237,27 @@
     margin: 0;
 }
 
-/* Base style for tag pills (Funny, Gym, etc.) */
+/* Tag pills (About Me) - Bootstrap badge + brand overrides */
 .swipe-pill {
-    display: flex;
-    align-items: center;
-    justify-content: center;
     width: 100%;
     max-width: 120px;
     padding: 8px 14px;
-    border-radius: var(--swipe-pill-radius);
-    font-family: var(--wm-font-family);
     font-size: 13px;
     font-weight: 600;
-    border: none;
-    cursor: default;
-    white-space: nowrap;
-    text-align: center;
     transition: transform var(--swipe-transition), box-shadow var(--swipe-transition);
 }
 
-/* Tag pill hover - slight lift */
 .swipe-pill:hover {
     transform: translateY(-1px);
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
 }
 
-/* Pink filled tag pill */
-.swipe-pill--pink {
-    background: var(--swipe-pink);
-    color: #FFFFFF;
-}
+.swipe-pill--pink { background: var(--swipe-pink); color: #FFFFFF; }
+.swipe-pill--orange { background: var(--swipe-orange); color: #FFFFFF; }
 
-/* Orange filled tag pill */
-.swipe-pill--orange {
-    background: var(--swipe-orange);
-    color: #FFFFFF;
-}
-
-/* Right column of tags card - "What My Friends Say" card */
+/* Right column of tags card - "What My Friends Say" card - Bootstrap card + brand overrides */
 .swipe-friends-card {
-    background: var(--swipe-card-bg);
+    border: 0;
     border-radius: var(--swipe-card-radius);
     padding: 28px 30px;
     box-shadow: var(--swipe-card-shadow);
@@ -466,16 +355,13 @@
     flex-shrink: 0;
 }
 
-/* Bottom-right card: "Looking For" preferences on pink background */
+/* Bottom-right card: "Looking For" preferences on pink background - Bootstrap card + brand overrides */
 .swipe-looking-card {
-    grid-column: 2 / 3;
-    grid-row: 2 / 3;
     background: var(--swipe-pink);
+    border: 0;
     border-radius: var(--swipe-card-radius);
     padding: 35px 25px;
     box-shadow: var(--swipe-card-shadow);
-    display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
 }
@@ -498,23 +384,17 @@
     justify-content: center;
 }
 
-/* Individual "Looking For" pill (white outline on pink) */
+/* "Looking For" pill (white outline on pink) - Bootstrap badge + brand overrides */
 .swipe-looking-pill {
-    display: inline-flex;
-    align-items: center;
     padding: 8px 20px;
-    border-radius: var(--swipe-pill-radius);
-    font-family: var(--wm-font-family);
     font-size: 13px;
     font-weight: 600;
     border: 1.5px solid rgba(255, 255, 255, 0.5);
     color: #FFFFFF;
     background: rgba(255, 255, 255, 0.12);
-    cursor: default;
     transition: background var(--swipe-transition), transform var(--swipe-transition);
 }
 
-/* "Looking For" pill hover - brighter background */
 .swipe-looking-pill:hover {
     background: rgba(255, 255, 255, 0.22);
     transform: translateY(-1px);
@@ -538,44 +418,81 @@
     z-index: 50;
 }
 
-/* Shared base style for Skip and Match buttons */
-.swipe-btn {
+/* Bootstrap btn-primary brand override (Match button) */
+.btn-primary {
+    --bs-btn-bg: var(--swipe-pink);
+    --bs-btn-border-color: var(--swipe-pink);
+    --bs-btn-color: #FFFFFF;
+    --bs-btn-hover-bg: var(--swipe-pink-light);
+    --bs-btn-hover-border-color: var(--swipe-pink-light);
+    --bs-btn-hover-color: #FFFFFF;
+    --bs-btn-active-bg: var(--swipe-pink-light);
+    --bs-btn-active-border-color: var(--swipe-pink-light);
+    --bs-btn-active-color: #FFFFFF;
+    --bs-btn-disabled-bg: var(--swipe-pink);
+    --bs-btn-disabled-border-color: var(--swipe-pink);
+    --bs-btn-disabled-color: #FFFFFF;
+    --bs-btn-focus-shadow-rgb: 195, 14, 89;
+}
+
+/* Bootstrap btn-light brand override (Skip button) */
+.btn-light {
+    --bs-btn-bg: var(--swipe-card-bg);
+    --bs-btn-border-color: #ddd;
+    --bs-btn-color: #1A1A1A;
+    --bs-btn-hover-bg: #f5f5f5;
+    --bs-btn-hover-border-color: #ddd;
+    --bs-btn-hover-color: #1A1A1A;
+    --bs-btn-active-bg: #f5f5f5;
+    --bs-btn-active-border-color: #ddd;
+    --bs-btn-active-color: #1A1A1A;
+    --bs-btn-disabled-bg: var(--swipe-card-bg);
+    --bs-btn-disabled-border-color: #ddd;
+    --bs-btn-disabled-color: #1A1A1A;
+}
+
+/* Bootstrap btn-secondary brand override (Save Preferences button) */
+.btn-secondary {
+    --bs-btn-bg: var(--swipe-orange);
+    --bs-btn-border-color: var(--swipe-orange);
+    --bs-btn-color: #FFFFFF;
+    --bs-btn-hover-bg: var(--swipe-orange-light);
+    --bs-btn-hover-border-color: var(--swipe-orange-light);
+    --bs-btn-hover-color: #FFFFFF;
+    --bs-btn-active-bg: var(--swipe-orange-light);
+    --bs-btn-active-border-color: var(--swipe-orange-light);
+    --bs-btn-active-color: #FFFFFF;
+    --bs-btn-disabled-bg: var(--swipe-orange);
+    --bs-btn-disabled-border-color: var(--swipe-orange);
+    --bs-btn-disabled-color: #FFFFFF;
+    --bs-btn-focus-shadow-rgb: 242, 174, 102;
+}
+
+/* Skip + Match shared sizing and shadows */
+.swipe-btn--skip,
+.swipe-btn--match {
     padding: 14px 48px;
-    border-radius: 30px;
     font-family: var(--wm-font-family);
     font-size: 16px;
     font-weight: 700;
-    cursor: pointer;
-    transition: transform var(--swipe-transition), box-shadow var(--swipe-transition), background var(--swipe-transition);
-    border: none;
     min-width: 140px;
+    transition: transform var(--swipe-transition), box-shadow var(--swipe-transition);
 }
 
-/* Skip button - white with dark text */
 .swipe-btn--skip {
-    background: var(--swipe-card-bg);
-    color: #1A1A1A;
-    border: 2px solid #ddd;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-/* Skip button hover */
 .swipe-btn--skip:hover {
-    background: #f5f5f5;
     transform: translateY(-2px);
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
 }
 
-/* Match button - pink filled */
 .swipe-btn--match {
-    background: var(--swipe-pink);
-    color: #FFFFFF;
     box-shadow: 0 4px 14px rgba(195, 14, 89, 0.3);
 }
 
-/* Match button hover */
 .swipe-btn--match:hover {
-    background: var(--swipe-pink-light);
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(195, 14, 89, 0.35);
 }
@@ -586,17 +503,6 @@
     /* Reduce page padding on tablet */
     .swipe-page {
         padding: 20px;
-    }
-
-    /* Equal-width columns on tablet */
-    .swipe-container {
-        grid-template-columns: 1fr 1fr;
-        gap: 18px;
-    }
-
-    /* Stack tags sidebar into single column */
-    .swipe-tags-card {
-        grid-template-columns: 1fr;
     }
 
     /* Tags sidebar becomes horizontal row on tablet */
@@ -619,22 +525,9 @@
 }
 
 @media (max-width: 768px) {
-    /* Single column layout on mobile */
-    .swipe-container {
-        grid-template-columns: 1fr;
-    }
-
-    /* Photo card takes full width on mobile */
+    /* Photo card shorter on mobile */
     .swipe-photos-card {
-        grid-column: 1 / 2;
-        grid-row: auto;
-        min-height: 280px;
-    }
-
-    /* "Looking For" card takes full width on mobile */
-    .swipe-looking-card {
-        grid-column: 1 / 2;
-        grid-row: auto;
+        height: 280px;
     }
 
     /* Banner stacks vertically and centres on mobile */
@@ -657,12 +550,6 @@
         text-align: center;
     }
 
-    /* Tags card takes full width on mobile */
-    .swipe-tags-card {
-        grid-column: 1 / 2;
-        grid-template-columns: 1fr;
-    }
-
     /* Centre tags horizontally on mobile */
     .swipe-tags-sidebar {
         flex-direction: row;
@@ -673,11 +560,6 @@
     /* Smaller friends title on mobile */
     .swipe-friends-title {
         font-size: 16px;
-    }
-
-    /* Actions span full width on mobile */
-    .swipe-actions {
-        grid-column: 1 / 2;
     }
 }
 
