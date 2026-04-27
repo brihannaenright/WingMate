@@ -43,6 +43,189 @@ if (!$isOwnProfile) {
     $stmt->close();
 }
 
+// Handle POST requests (only allow on own profile)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isOwnProfile) {
+    $action = $_POST['action'] ?? '';
+
+    if ($action === 'update_tags') {
+        header('Content-Type: application/json');
+        $tagIds = json_decode($_POST['tag_ids'] ?? '[]', true);
+
+        // Profile only handles about_me tags (looking_for tags are managed from settings)
+        $selectionType = 'about_me';
+
+        // Remove existing about_me tags for this user
+        $stmt = $conn->prepare("DELETE FROM User_Tags WHERE user_id = ? AND selection_type = ?");
+        $stmt->bind_param('is', $current_user_id, $selectionType);
+        $stmt->execute();
+        $stmt->close();
+
+        // Insert new about_me tag selections
+        if (!empty($tagIds)) {
+            $stmt = $conn->prepare("INSERT INTO User_Tags (user_id, tag_id, selection_type) VALUES (?, ?, ?)");
+            foreach ($tagIds as $tagId) {
+                $tagId = intval($tagId);
+                $stmt->bind_param('iis', $current_user_id, $tagId, $selectionType);
+                $stmt->execute();
+            }
+            $stmt->close();
+        }
+
+        echo json_encode(['success' => true]);
+        exit;
+    }
+
+    if ($action === 'upload_photo') {
+        header('Content-Type: application/json');
+        $isPrimary = intval($_POST['is_primary'] ?? 0);
+
+        if (!isset($_FILES['photo']) || $_FILES['photo']['error'] !== UPLOAD_ERR_OK) {
+            echo json_encode(['success' => false, 'error' => 'No file uploaded']);
+            exit;
+        }
+
+        $file = $_FILES['photo'];
+        if ($file['size'] > 2 * 1024 * 1024) {
+            echo json_encode(['success' => false, 'error' => 'File must be under 2MB']);
+            exit;
+        }
+
+        $allowed = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!in_array($file['type'], $allowed)) {
+            echo json_encode(['success' => false, 'error' => 'Invalid file type']);
+            exit;
+        }
+
+        $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+        $filename = time() . '_' . $current_user_id . '.' . $ext;
+        $uploadDir = __DIR__ . '/../../Uploads/';
+        $destination = $uploadDir . $filename;
+
+        if (!move_uploaded_file($file['tmp_name'], $destination)) {
+            echo json_encode(['success' => false, 'error' => 'Failed to save file']);
+            exit;
+        }
+
+        // If setting as primary, unset current primary
+        if ($isPrimary) {
+            $stmt = $conn->prepare("UPDATE User_Pictures SET is_primary = 0 WHERE user_id = ? AND is_primary = 1");
+            $stmt->bind_param('i', $current_user_id);
+            $stmt->execute();
+            $stmt->close();
+        }
+
+        $stmt = $conn->prepare("INSERT INTO User_Pictures (user_id, photo_url, is_primary, is_removed) VALUES (?, ?, ?, 0)");
+        $stmt->bind_param('isi', $current_user_id, $filename, $isPrimary);
+        $stmt->execute();
+        $photoId = $stmt->insert_id;
+        $stmt->close();
+
+        echo json_encode(['success' => true, 'photo_id' => $photoId, 'photo_url' => '/Uploads/' . $filename]);
+        exit;
+    }
+
+    if ($action === 'delete_photo') {
+        header('Content-Type: application/json');
+        $photoId = intval($_POST['photo_id'] ?? 0);
+
+        // Fetch filename before deleting
+        $stmt = $conn->prepare("SELECT photo_url FROM User_Pictures WHERE photo_id = ? AND user_id = ?");
+        $stmt->bind_param('ii', $photoId, $current_user_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $photo = $result->fetch_assoc();
+        $stmt->close();
+
+        if ($photo) {
+            // Delete file from disk
+            $filePath = __DIR__ . '/../../Uploads/' . $photo['photo_url'];
+            if (file_exists($filePath)) {
+                unlink($filePath);
+            }
+
+            // Delete row from DB
+            $stmt = $conn->prepare("DELETE FROM User_Pictures WHERE photo_id = ? AND user_id = ?");
+            $stmt->bind_param('ii', $photoId, $current_user_id);
+            $stmt->execute();
+            $stmt->close();
+        }
+
+        echo json_encode(['success' => true]);
+        exit;
+    }
+
+    if ($action === 'update_bio') {
+        header('Content-Type: application/json');
+        $bio = trim($_POST['bio'] ?? '');
+        $gender = $_POST['gender'] ?? '';
+        if (strlen($bio) > 500) {
+            echo json_encode(['success' => false, 'error' => 'Bio too long']);
+            exit;
+        }
+        $allowedGenders = ['male', 'female', 'non-binary', ''];
+        if (!in_array($gender, $allowedGenders, true)) {
+            echo json_encode(['success' => false, 'error' => 'Invalid gender']);
+            exit;
+        }
+        $genderToSave = $gender === '' ? null : $gender;
+        $stmt = $conn->prepare("UPDATE User_Profile SET user_bio = ?, gender = ? WHERE user_id = ?");
+        $stmt->bind_param('ssi', $bio, $genderToSave, $current_user_id);
+        $stmt->execute();
+        $stmt->close();
+        echo json_encode(['success' => true]);
+        exit;
+    }
+
+    if ($action === 'update_location') {
+        header('Content-Type: application/json');
+
+        $lat = floatval($_POST['lat'] ?? 0);
+        $lng = floatval($_POST['lng'] ?? 0);
+
+        if ($lat === 0.0 && $lng === 0.0) {
+            echo json_encode(['success' => false, 'error' => 'Invalid coordinates']);
+            exit;
+        }
+
+        // Release session lock so other tabs don't block on this request
+        session_write_close();
+
+        // 3s timeout so a slow Nominatim response doesn't hold the PHP slot
+        $url = "https://nominatim.openstreetmap.org/reverse?lat=$lat&lon=$lng&format=json&zoom=10";
+        $context = stream_context_create(['http' => [
+            'header'  => "User-Agent: WingMate/1.0\r\n",
+            'timeout' => 3,
+        ]]);
+        $response = @file_get_contents($url, false, $context);
+
+        $generalLocation = 'Unknown location';
+        if ($response) {
+            $data = json_decode($response, true);
+            $address = $data['address'] ?? [];
+            $city = $address['city'] ?? $address['town'] ?? $address['village'] ?? $address['county'] ?? '';
+            $country = $address['country'] ?? '';
+            // Strip native name (e.g. "Éire / Ireland" → "Ireland")
+            if (strpos($country, ' / ') !== false) {
+                $country = substr($country, strrpos($country, ' / ') + 3);
+            }
+            if ($city && $country) {
+                $generalLocation = "$city, $country";
+            } elseif ($country) {
+                $generalLocation = $country;
+            }
+        }
+
+        // Save all three to DB
+        $stmt = $conn->prepare("UPDATE User_Profile SET latitude = ?, longitude = ?, general_location = ? WHERE user_id = ?");
+        $stmt->bind_param('ddsi', $lat, $lng, $generalLocation, $current_user_id);
+        $stmt->execute();
+        $stmt->close();
+
+        echo json_encode(['success' => true, 'general_location' => $generalLocation]);
+        exit;
+    }
+}
+
 // Fetch profile data from DB
 $stmt = $conn->prepare("SELECT first_name, last_name, date_of_birth, gender, general_location, user_bio FROM User_Profile WHERE user_id = ?");
 $stmt->bind_param('i', $profile_user_id);
@@ -71,24 +254,18 @@ while ($row = $result->fetch_assoc()) {
     $allTags[] = $row;
 }
 
-// Fetch user's selected tags split by selection_type
+// Fetch user's "about_me" tags
 $aboutMeTagIds = [];
-$lookingForTagIds = [];
-$stmt = $conn->prepare("SELECT tag_id, selection_type FROM User_Tags WHERE user_id = ?");
+$stmt = $conn->prepare("SELECT tag_id FROM User_Tags WHERE user_id = ? AND selection_type = 'about_me'");
 $stmt->bind_param('i', $profile_user_id);
 $stmt->execute();
 $result = $stmt->get_result();
 while ($row = $result->fetch_assoc()) {
-    if ($row['selection_type'] === 'about_me') {
-        $aboutMeTagIds[] = (int)$row['tag_id'];
-    } elseif ($row['selection_type'] === 'looking_for') {
-        $lookingForTagIds[] = (int)$row['tag_id'];
-    }
+    $aboutMeTagIds[] = (int)$row['tag_id'];
 }
 $stmt->close();
 
 $userAboutMeTags = array_filter($allTags, fn($t) => in_array((int)$t['tag_id'], $aboutMeTagIds));
-$userLookingForTags = array_filter($allTags, fn($t) => in_array((int)$t['tag_id'], $lookingForTagIds));
 
 // Fetch user's photos
 $userPhotos = [];
@@ -221,14 +398,138 @@ if ($isOwnProfile || $isFriend) {
                 </div>
             </div>
         </div>
+    </div>    
 
-        <!-- Bottom-Right Card: Looking For -->
-        <div class="profile-looking-card" id="profileLookingForPills">
-            <h3 class="profile-looking-title">Looking For</h3>
-            <div class="profile-looking-pills">
-                <?php foreach ($userLookingForTags as $tag): ?>
-                    <span class="profile-looking-pill"><?php echo htmlspecialchars($tag['tag_name']); ?></span>
-                <?php endforeach; ?>
+    <!-- Bio/Location Edit Modal -->
+    <div class="modal fade" id="bioModal" tabindex="-1" aria-labelledby="bioModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content profile-modal-content">
+                <div class="modal-header profile-modal-header">
+                    <h5 class="modal-title" id="bioModalLabel">Edit Profile Info</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label profile-modal-label">Location</label>
+                        <div class="d-flex gap-2 align-items-center">
+                            <input type="text" class="form-control profile-modal-input" id="editLocation" readonly placeholder="Pick on map..." value="<?php echo $displayLocation; ?>">
+                            <button type="button" class="btn profile-btn-upload" onclick="openMapModal()" style="white-space:nowrap;">Pick on Map</button>
+                        </div>
+                        <input type="hidden" id="editLat" value="<?php echo $userLat; ?>">
+                        <input type="hidden" id="editLng" value="<?php echo $userLng; ?>">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editGender" class="form-label profile-modal-label">Gender</label>
+                        <select class="form-control profile-modal-input" id="editGender">
+                            <option value="">Prefer not to say</option>
+                            <option value="male" <?php echo $userGender === 'male' ? 'selected' : ''; ?>>Male</option>
+                            <option value="female" <?php echo $userGender === 'female' ? 'selected' : ''; ?>>Female</option>
+                            <option value="non-binary" <?php echo $userGender === 'non-binary' ? 'selected' : ''; ?>>Non-binary</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editBio" class="form-label profile-modal-label">Bio</label>
+                        <textarea class="form-control profile-modal-input" id="editBio" rows="4" maxlength="500" placeholder="Tell people about yourself..."></textarea>
+                        <div class="form-text text-end"><span id="bioCharCount">0</span>/500</div>
+                    </div>
+                </div>
+                <div class="modal-footer profile-modal-footer">
+                    <button type="button" class="btn profile-btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn profile-btn-save" onclick="saveBio()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Picture Edit Modal -->
+    <div class="modal fade" id="picModal" tabindex="-1" aria-labelledby="picModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content profile-modal-content">
+                <div class="modal-header profile-modal-header">
+                    <h5 class="modal-title" id="picModalLabel">Change Profile Picture</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <div class="profile-pic-preview-wrapper">
+                        <img id="picPreview" src="" alt="Preview" class="profile-pic-preview" style="display:none;">
+                        <div class="profile-pic-preview-empty" id="picPreviewEmpty">No photo</div>
+                    </div>
+                    <label class="btn profile-btn-upload mt-3">
+                        Choose Photo
+                        <input type="file" id="picFileInput" accept="image/jpeg,image/png,image/webp" hidden>
+                    </label>
+                </div>
+                <div class="modal-footer profile-modal-footer">
+                    <button type="button" class="btn profile-btn-remove" id="removePicBtn" onclick="removeProfilePic()">Remove</button>
+                    <div class="ms-auto d-flex gap-2">
+                        <button type="button" class="btn profile-btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn profile-btn-save" onclick="saveProfilePic()">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carousel Photos Edit Modal -->
+    <div class="modal fade" id="photosModal" tabindex="-1" aria-labelledby="photosModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content profile-modal-content">
+                <div class="modal-header profile-modal-header">
+                    <h5 class="modal-title" id="photosModalLabel">Manage Photos</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="profile-photos-grid" id="photosGrid">
+                        <!-- Populated by JS -->
+                    </div>
+                    <label class="btn profile-btn-upload mt-3" id="addPhotoBtn">
+                        + Add Photo
+                        <input type="file" id="photoFileInput" accept="image/jpeg,image/png,image/webp" hidden>
+                    </label>
+                    <div class="form-text">Max 6 photos</div>
+                </div>
+                <div class="modal-footer profile-modal-footer">
+                    <button type="button" class="btn profile-btn-save" data-bs-dismiss="modal">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Map Location Picker Modal -->
+    <div class="modal fade" id="mapModal" tabindex="-1" aria-labelledby="mapModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content profile-modal-content">
+                <div class="modal-header profile-modal-header">
+                    <h5 class="modal-title" id="mapModalLabel">Pick Your Location</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="form-text mb-2">Click on the map to select your location</p>
+                    <div id="map"></div>
+                </div>
+                <div class="modal-footer profile-modal-footer">
+                    <button type="button" class="btn profile-btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn profile-btn-save" id="confirmLocationBtn" onclick="confirmLocation()" disabled>Confirm Location</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tag Picker Modal -->
+    <div class="modal fade" id="tagPickerModal" tabindex="-1" aria-labelledby="tagPickerModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content profile-modal-content">
+                <div class="modal-header profile-modal-header">
+                    <h5 class="modal-title" id="tagPickerModalLabel">Select Tags</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="profile-tag-picker" id="tagPickerGrid"></div>
+                </div>
+                <div class="modal-footer profile-modal-footer">
+                    <button type="button" class="btn profile-btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn profile-btn-save" onclick="saveTags()">Save</button>
+                </div>
             </div>
         </div>
     </div>
@@ -242,6 +543,15 @@ if ($isOwnProfile || $isFriend) {
     if (primaryPhotoData) userPhotos.push(primaryPhotoData);
     userPhotos = userPhotos.concat(carouselPhotosData);
 
+    const allTags = <?php echo json_encode($allTags); ?>;
+    const aboutMeTagIds = <?php echo json_encode(array_values($aboutMeTagIds)); ?>;
+    
+        // Carousel photos 
+    const userPhotos = <?php echo json_encode(array_values($userPhotos)); ?>;
+    const primaryPhotoUrl = <?php echo json_encode($primaryPhoto ? $primaryPhoto['photo_url'] : null); ?>;
+
+    
+    const primaryPhotoId = <?php echo json_encode($primaryPhoto ? (int)$primaryPhoto['photo_id'] : null); ?>;
     const currentUserId = <?php echo json_encode($current_user_id); ?>;
     const profileUserId = <?php echo json_encode($profile_user_id); ?>;
     const initialComments = <?php echo json_encode($comments); ?>;
