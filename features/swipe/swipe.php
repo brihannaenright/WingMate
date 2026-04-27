@@ -136,21 +136,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $max_distance = max(0, min(100, (int) ($_POST['max_distance_km'] ?? 100)));
 
-        $relationship_type_raw = $_POST['relationship_type'] ?? '';
-        $allowed_relationships = ['short_term', 'long_term', 'fun'];
-        $relationship_type = in_array($relationship_type_raw, $allowed_relationships, true) ? $relationship_type_raw : null;
-
+        // relationship_type is no longer part of the swipe filter form (moved to settings),
+        // so we only write the filter columns here and leave relationship_type untouched.
         $stmt = $conn->prepare("SELECT preference_id FROM User_Preferences WHERE user_id = ?");
         $stmt->bind_param("i", $current_user_id);
         $stmt->execute();
         $result = $stmt->get_result();
 
         if ($result->num_rows > 0) {
-            $stmt = $conn->prepare("UPDATE User_Preferences SET preferred_gender = ?, min_age = ?, max_age = ?, max_distance_km = ?, relationship_type = ? WHERE user_id = ?");
-            $stmt->bind_param("siiisi", $preferred_gender, $min_age, $max_age, $max_distance, $relationship_type, $current_user_id);
+            $stmt = $conn->prepare("UPDATE User_Preferences SET preferred_gender = ?, min_age = ?, max_age = ?, max_distance_km = ? WHERE user_id = ?");
+            $stmt->bind_param("siiii", $preferred_gender, $min_age, $max_age, $max_distance, $current_user_id);
         } else {
-            $stmt = $conn->prepare("INSERT INTO User_Preferences (user_id, preferred_gender, min_age, max_age, max_distance_km, relationship_type) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("isiiis", $current_user_id, $preferred_gender, $min_age, $max_age, $max_distance, $relationship_type);
+            $stmt = $conn->prepare("INSERT INTO User_Preferences (user_id, preferred_gender, min_age, max_age, max_distance_km) VALUES (?, ?, ?, ?, ?)");
+            $stmt->bind_param("isiii", $current_user_id, $preferred_gender, $min_age, $max_age, $max_distance);
         }
         $stmt->execute();
         $stmt->close();
@@ -203,18 +201,23 @@ $stmt->close();
 // Pre-checks
 $locationMissing = !$viewer || $viewer['latitude'] === null || $viewer['longitude'] === null;
 $friendsMissing = $friendCount === 0;
-$prefsIncomplete = !$prefs
+
+// Filter-form fields (still set on this page)
+$filtersIncomplete = !$prefs
     || $prefs['min_age'] === null || $prefs['max_age'] === null
     || $prefs['max_distance_km'] === null || (int)$prefs['max_distance_km'] <= 0
-    || $prefs['relationship_type'] === null
     || empty($viewerLookingForTagIds);
+
+// relationship_type lives in settings now, but is still required to swipe
+$relationshipMissing = !$prefs || $prefs['relationship_type'] === null;
+
+$prefsIncomplete = $filtersIncomplete || $relationshipMissing;
 
 // Form defaults (used when prefs missing)
 $preferred_gender = $prefs['preferred_gender'] ?? null; // NULL = All
 $min_age = $prefs['min_age'] ?? 18;
 $max_age = $prefs['max_age'] ?? 100;
 $max_distance = $prefs['max_distance_km'] ?? 100;
-$relationship_type = $prefs['relationship_type'] ?? '';
 
 // Build candidates only when viewer has complete setup
 $candidatesList = [];
@@ -348,7 +351,7 @@ if (!$locationMissing && !$friendsMissing && !$prefsIncomplete) {
     <?php endif; ?>
 
     <!-- Match Filters -->
-    <details class="swipe-filters" <?php echo $prefsIncomplete ? 'open' : ''; ?>>
+    <details class="swipe-filters" <?php echo $filtersIncomplete ? 'open' : ''; ?>>
         <summary class="swipe-filters-summary">Match Filters</summary>
         <form method="POST" action="/features/swipe/swipe.php" class="swipe-filters-form">
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
@@ -407,17 +410,6 @@ if (!$locationMissing && !$friendsMissing && !$prefsIncomplete) {
                 </div>
 
                 <div class="preferences-column">
-                    <!-- Relationship Type -->
-                    <div class="preference-field">
-                        <label>Relationship Type:</label>
-                        <select name="relationship_type" class="preference-select">
-                            <option value="" <?php echo $relationship_type === '' ? 'selected' : ''; ?>>Select</option>
-                            <option value="short_term" <?php echo $relationship_type === 'short_term' ? 'selected' : ''; ?>>Short term</option>
-                            <option value="long_term" <?php echo $relationship_type === 'long_term' ? 'selected' : ''; ?>>Long term</option>
-                            <option value="fun" <?php echo $relationship_type === 'fun' ? 'selected' : ''; ?>>Looking for fun</option>
-                        </select>
-                    </div>
-
                     <!-- Looking For Attributes -->
                     <div class="preference-field">
                         <label>Looking For (Attributes):</label>
@@ -495,7 +487,11 @@ if (!$locationMissing && !$friendsMissing && !$prefsIncomplete) {
         </div>
     <?php elseif ($prefsIncomplete && !$locationMissing && !$friendsMissing): ?>
         <div class="alert-wingmate">
-            Fill out your match filters above to start swiping.
+            <?php if ($relationshipMissing): ?>
+                Choose a relationship type in <a href="/features/settings/settings.php">Settings</a> before swiping.
+            <?php else: ?>
+                Fill out your match filters above to start swiping.
+            <?php endif; ?>
         </div>
     <?php endif; ?>
 </div>
