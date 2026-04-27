@@ -419,3 +419,21 @@ input[type="range"] {
     opacity: 0.9;
     color: #FFFFFF;
 }
+
+/* Leaflet map container inside the map modal */
+#map {
+    height: 400px;
+    width: 100%;
+    border-radius: 12px;
+    z-index: 1;
+}
+
+/* Fix Leaflet z-index conflict inside Bootstrap modal */
+.leaflet-pane {
+    z-index: 1 !important;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+    z-index: 2 !important;
+}

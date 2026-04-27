@@ -1,53 +1,50 @@
-// --- Carousel state ---
-// Initialize photos from DB data (set in profile.php)
-let photos = (typeof userPhotos !== 'undefined' ? userPhotos : []);
-let currentIndex = 0;
+// --- Photo carousel ---
+const photos = (typeof userPhotos !== 'undefined' ? userPhotos : []);
+const carouselEl = document.getElementById('profilePhotoCarousel');
+const carouselEmpty = document.querySelector('.profile-photo-empty');
 
-function updateCarousel() {
-    const img = document.getElementById('carouselImage');
-    const empty = document.querySelector('.profile-photo-empty');
-    const dotsContainer = document.querySelector('.profile-photo-dots');
+function renderCarousel() {
+    if (!carouselEl) return;
+    const inner = carouselEl.querySelector('.carousel-inner');
+    const indicators = carouselEl.querySelector('.carousel-indicators');
 
-    if (!img) return;
+    if (typeof bootstrap !== 'undefined') {
+        const existing = bootstrap.Carousel.getInstance(carouselEl);
+        if (existing) existing.dispose();
+    }
+
+    inner.innerHTML = '';
+    indicators.innerHTML = '';
 
     if (photos.length === 0) {
-        img.style.display = 'none';
-        if (empty) empty.style.display = '';
-        if (dotsContainer) dotsContainer.innerHTML = '';
+        carouselEl.style.display = 'none';
+        if (carouselEmpty) carouselEmpty.style.display = '';
         return;
     }
+    carouselEl.style.display = '';
+    if (carouselEmpty) carouselEmpty.style.display = 'none';
 
-    if (empty) empty.style.display = 'none';
-    img.style.display = '';
+    photos.forEach((p, i) => {
+        const item = document.createElement('div');
+        item.className = 'carousel-item' + (i === 0 ? ' active' : '');
+        const img = document.createElement('img');
+        img.src = p.photo_url;
+        img.className = 'd-block w-100 profile-photo-img';
+        img.alt = '';
+        item.appendChild(img);
+        inner.appendChild(item);
 
-    img.style.opacity = '0.7';
-    setTimeout(() => {
-        img.src = photos[currentIndex].photo_url;
-        img.style.opacity = '1';
-    }, 100);
-
-    if (dotsContainer) {
-        dotsContainer.innerHTML = photos.map((_, i) =>
-            `<span class="profile-photo-dot ${i === currentIndex ? 'active' : ''}" onclick="setPhoto(${i})"></span>`
-        ).join('');
-    }
-}
-
-function nextPhoto() {
-    if (photos.length === 0) return;
-    currentIndex = (currentIndex + 1) % photos.length;
-    updateCarousel();
-}
-
-function prevPhoto() {
-    if (photos.length === 0) return;
-    currentIndex = (currentIndex - 1 + photos.length) % photos.length;
-    updateCarousel();
-}
-
-function setPhoto(index) {
-    currentIndex = index;
-    updateCarousel();
+        const indicator = document.createElement('button');
+        indicator.type = 'button';
+        indicator.dataset.bsTarget = '#profilePhotoCarousel';
+        indicator.dataset.bsSlideTo = String(i);
+        indicator.setAttribute('aria-label', 'Slide ' + (i + 1));
+        if (i === 0) {
+            indicator.className = 'active';
+            indicator.setAttribute('aria-current', 'true');
+        }
+        indicators.appendChild(indicator);
+    });
 }
 
 // --- Friend comments posting ---
@@ -108,5 +105,5 @@ function loadComments() {
         .catch(err => console.error('Error loading comments:', err));
 }
 
-// Render carousel on page load if photos exist
-updateCarousel();
+// Render carousel on page load
+renderCarousel();
