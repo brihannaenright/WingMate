@@ -111,37 +111,6 @@
     background-color: #F5F5F5;
 }
 
-/* Error and empty messages */
-.admin-error {
-    color: #B42318;
-    font-size: 14px;
-}
-
-.empty-message {
-    color: #808080;
-    font-size: 14px;
-    font-weight: 300;
-}
-
-/* Table styling */
-.admin-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.admin-table th,
-.admin-table td {
-    padding: 12px 10px;
-    text-align: left;
-    font-family: var(--wm-font-family);
-    font-size: 14px;
-    border-bottom: 1px solid #E0E0E0;
-}
-
-.admin-table th {
-    font-weight: 600;
-}
-
 /* Links in tables */
 .admin-link {
     color: var(--wm-button-primary);
@@ -152,37 +121,27 @@
     text-decoration: underline;
 }
 
-/* Colour-coded status badges */
-.status-badge {
-    padding: 4px 10px;
-    border-radius: var(--wm-button-radius);
-    color: #FFFFFF;
-    font-size: 12px;
-    font-weight: 500;
-}
-
-.status-active {
+/* Brand colours for Bootstrap badges (use alongside `class="badge status-*"`) */
+.status-active,
+.status-resolved {
     background-color: #2E7D32;
+    color: #FFFFFF;
 }
 
-.status-suspended {
+.status-suspended,
+.status-open {
     background-color: var(--wm-button-secondary);
+    color: #FFFFFF;
 }
 
 .status-banned {
     background-color: var(--wm-button-primary);
-}
-
-.status-open {
-    background-color: var(--wm-button-secondary);
-}
-
-.status-resolved {
-    background-color: #2E7D32;
+    color: #FFFFFF;
 }
 
 .status-dismissed {
     background-color: #808080;
+    color: #FFFFFF;
 }
 
 /* Smaller action buttons that reuse global button styles */
@@ -194,42 +153,7 @@
     text-decoration: none;
 }
 
-/* User detail cards */
-.user-detail-card {
-    border: 1px solid #E0E0E0;
-    border-radius: var(--wm-button-radius);
-    padding: 1.25rem;
-}
-
-.user-detail-card p {
-    font-size: 14px;
-    margin-bottom: 6px;
-}
-
-/* Removed message row styling */
-.message-removed {
-    opacity: 0.5;
-}
-
-/* Admin edit-profile form: simple grid so fields wrap on narrow screens */
-.admin-edit-form {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-    align-items: end;
-}
-
-.admin-edit-row--full {
-    grid-column: 1 / -1;
-}
-
 /* Admin photo thumbnails with remove button below each */
-.admin-photos-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-}
-
 .admin-photo-thumb {
     position: relative;
     width: 120px;

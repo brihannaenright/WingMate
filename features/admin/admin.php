@@ -235,7 +235,7 @@ if (isset($_SESSION['admin_error'])) {
         <div class="col-lg-10 admin-content">
             <!-- Error message display -->
             <?php if ($adminError !== ''): ?>
-                <p class="admin-error"><?php echo htmlspecialchars($adminError, ENT_QUOTES, 'UTF-8'); ?></p>
+                <div class="alert alert-danger"><?php echo htmlspecialchars($adminError, ENT_QUOTES, 'UTF-8'); ?></div>
             <?php endif; ?>
 
             <?php if ($page === 'dashboard'): ?>
@@ -278,7 +278,7 @@ if (isset($_SESSION['admin_error'])) {
                 ?>
 
                 <?php if (count($reports) > 0): ?>
-                    <table class="admin-table">
+                    <table class="table table-hover">
                         <thead>
                             <tr>
                                 <th>Reported By</th>
@@ -302,7 +302,7 @@ if (isset($_SESSION['admin_error'])) {
                                     <td><?php echo htmlspecialchars($report['reason'], ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td><?php echo htmlspecialchars($report['details'], ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td>
-                                        <span class="status-badge status-<?php echo htmlspecialchars($report['report_status'], ENT_QUOTES, 'UTF-8'); ?>">
+                                        <span class="badge status-<?php echo htmlspecialchars($report['report_status'], ENT_QUOTES, 'UTF-8'); ?>">
                                             <?php echo htmlspecialchars($report['report_status'], ENT_QUOTES, 'UTF-8'); ?>
                                         </span>
                                     </td>
@@ -322,7 +322,7 @@ if (isset($_SESSION['admin_error'])) {
                         </tbody>
                     </table>
                 <?php else: ?>
-                    <p class="empty-message">No reports found.</p>
+                    <p class="text-muted small">No reports found.</p>
                 <?php endif; ?>
 
             <?php elseif ($page === 'user_detail'): ?>
@@ -394,11 +394,11 @@ if (isset($_SESSION['admin_error'])) {
                     <p class="admin-page-title">User Detail</p>
 
                     <!-- User Info -->
-                    <div class="user-detail-card mb-4">
+                    <div class="card card-body mb-4">
                         <p><strong>Name:</strong> <?php echo htmlspecialchars($view_user['first_name'] . ' ' . $view_user['last_name'], ENT_QUOTES, 'UTF-8'); ?></p>
                         <p><strong>Email:</strong> <?php echo htmlspecialchars($view_user['email'], ENT_QUOTES, 'UTF-8'); ?></p>
                         <p><strong>Status:</strong>
-                            <span class="status-badge status-<?php echo htmlspecialchars($view_user['account_status'], ENT_QUOTES, 'UTF-8'); ?>">
+                            <span class="badge status-<?php echo htmlspecialchars($view_user['account_status'], ENT_QUOTES, 'UTF-8'); ?>">
                                 <?php echo htmlspecialchars($view_user['account_status'], ENT_QUOTES, 'UTF-8'); ?>
                             </span>
                         </p>
@@ -410,44 +410,46 @@ if (isset($_SESSION['admin_error'])) {
 
                     <!-- Edit Profile (admin override for any User_Profile field) -->
                     <?php if ($view_user['user_type'] !== 'administrator'): ?>
-                        <div class="user-detail-card mb-4">
+                        <div class="card card-body mb-4">
                             <p><strong>Edit Profile</strong></p>
-                            <form method="POST" class="admin-edit-form">
+                            <form method="POST">
                                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                                 <input type="hidden" name="action" value="edit_profile">
                                 <input type="hidden" name="user_id" value="<?php echo (int) $view_user['user_id']; ?>">
-                                <div class="admin-edit-row">
-                                    <label class="form-label">First Name</label>
-                                    <input type="text" name="first_name" class="form-control" required value="<?php echo htmlspecialchars($view_user['first_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                <div class="row g-3 align-items-end">
+                                    <div class="col-md-6">
+                                        <label class="form-label">First Name</label>
+                                        <input type="text" name="first_name" class="form-control" required value="<?php echo htmlspecialchars($view_user['first_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Last Name</label>
+                                        <input type="text" name="last_name" class="form-control" required value="<?php echo htmlspecialchars($view_user['last_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Gender</label>
+                                        <select name="gender" class="form-control">
+                                            <?php $g = $view_user['gender'] ?? ''; ?>
+                                            <option value="" <?php echo $g === '' ? 'selected' : ''; ?>>Prefer not to say</option>
+                                            <option value="male" <?php echo $g === 'male' ? 'selected' : ''; ?>>Male</option>
+                                            <option value="female" <?php echo $g === 'female' ? 'selected' : ''; ?>>Female</option>
+                                            <option value="non-binary" <?php echo $g === 'non-binary' ? 'selected' : ''; ?>>Non-binary</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Location</label>
+                                        <input type="text" name="general_location" class="form-control" value="<?php echo htmlspecialchars($view_user['general_location'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label">Bio</label>
+                                        <textarea name="user_bio" class="form-control" rows="3" maxlength="500"><?php echo htmlspecialchars($view_user['user_bio'] ?? '', ENT_QUOTES, 'UTF-8'); ?></textarea>
+                                    </div>
                                 </div>
-                                <div class="admin-edit-row">
-                                    <label class="form-label">Last Name</label>
-                                    <input type="text" name="last_name" class="form-control" required value="<?php echo htmlspecialchars($view_user['last_name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
-                                </div>
-                                <div class="admin-edit-row">
-                                    <label class="form-label">Gender</label>
-                                    <select name="gender" class="form-control">
-                                        <?php $g = $view_user['gender'] ?? ''; ?>
-                                        <option value="" <?php echo $g === '' ? 'selected' : ''; ?>>Prefer not to say</option>
-                                        <option value="male" <?php echo $g === 'male' ? 'selected' : ''; ?>>Male</option>
-                                        <option value="female" <?php echo $g === 'female' ? 'selected' : ''; ?>>Female</option>
-                                        <option value="non-binary" <?php echo $g === 'non-binary' ? 'selected' : ''; ?>>Non-binary</option>
-                                    </select>
-                                </div>
-                                <div class="admin-edit-row">
-                                    <label class="form-label">Location</label>
-                                    <input type="text" name="general_location" class="form-control" value="<?php echo htmlspecialchars($view_user['general_location'] ?? '', ENT_QUOTES, 'UTF-8'); ?>">
-                                </div>
-                                <div class="admin-edit-row admin-edit-row--full">
-                                    <label class="form-label">Bio</label>
-                                    <textarea name="user_bio" class="form-control" rows="3" maxlength="500"><?php echo htmlspecialchars($view_user['user_bio'] ?? '', ENT_QUOTES, 'UTF-8'); ?></textarea>
-                                </div>
-                                <button type="submit" class="button-secondary admin-action-btn">Save</button>
+                                <button type="submit" class="button-secondary admin-action-btn mt-3">Save</button>
                             </form>
                         </div>
 
                         <!-- Edit Email (separate form because email lives on the Users table) -->
-                        <div class="user-detail-card mb-4">
+                        <div class="card card-body mb-4">
                             <p><strong>Edit Email</strong></p>
                             <form method="POST" class="d-flex gap-2 align-items-end">
                                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
@@ -462,10 +464,10 @@ if (isset($_SESSION['admin_error'])) {
                         </div>
 
                         <!-- Photos: each thumbnail has its own remove form -->
-                        <div class="user-detail-card mb-4">
+                        <div class="card card-body mb-4">
                             <p><strong>Photos</strong></p>
                             <?php if (count($user_photos) > 0): ?>
-                                <div class="admin-photos-grid">
+                                <div class="d-flex flex-wrap gap-2">
                                     <?php foreach ($user_photos as $photo): ?>
                                         <div class="admin-photo-thumb">
                                             <img src="/Uploads/<?php echo htmlspecialchars($photo['photo_url'], ENT_QUOTES, 'UTF-8'); ?>" alt="User photo">
@@ -483,12 +485,12 @@ if (isset($_SESSION['admin_error'])) {
                                     <?php endforeach; ?>
                                 </div>
                             <?php else: ?>
-                                <p class="empty-message">No photos.</p>
+                                <p class="text-muted small">No photos.</p>
                             <?php endif; ?>
                         </div>
 
                         <!-- Account Actions -->
-                        <div class="user-detail-card mb-4">
+                        <div class="card card-body mb-4">
                             <p><strong>Account Actions</strong></p>
                             <form method="POST" class="d-flex gap-2 align-items-end">
                                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
@@ -507,17 +509,17 @@ if (isset($_SESSION['admin_error'])) {
                                     <button type="submit" name="action" value="ban" class="admin-action-btn">Ban Permanently</button>
 
                                 <?php elseif ($view_user['account_status'] === 'banned'): ?>
-                                    <p class="admin-error">This account is permanently banned.</p>
+                                    <p class="text-danger small mb-0">This account is permanently banned.</p>
                                 <?php endif; ?>
                             </form>
                         </div>
                     <?php endif; ?>
 
                     <!-- User's Messages -->
-                    <div class="user-detail-card">
+                    <div class="card card-body">
                         <p><strong>Recent Messages</strong></p>
                         <?php if (count($user_messages) > 0): ?>
-                            <table class="admin-table">
+                            <table class="table table-hover">
                                 <thead>
                                     <tr>
                                         <th>Message</th>
@@ -528,14 +530,14 @@ if (isset($_SESSION['admin_error'])) {
                                 </thead>
                                 <tbody>
                                     <?php foreach ($user_messages as $msg): ?>
-                                        <tr class="<?php echo $msg['is_removed'] ? 'message-removed' : ''; ?>">
+                                        <tr class="<?php echo $msg['is_removed'] ? 'opacity-50' : ''; ?>">
                                             <td><?php echo htmlspecialchars($msg['content'], ENT_QUOTES, 'UTF-8'); ?></td>
                                             <td><?php echo htmlspecialchars($msg['sent_at'], ENT_QUOTES, 'UTF-8'); ?></td>
                                             <td>
                                                 <?php if ($msg['is_removed']): ?>
-                                                    <span class="status-badge status-banned">removed</span>
+                                                    <span class="badge status-banned">removed</span>
                                                 <?php else: ?>
-                                                    <span class="status-badge status-active">visible</span>
+                                                    <span class="badge status-active">visible</span>
                                                 <?php endif; ?>
                                             </td>
                                             <td>
@@ -553,15 +555,15 @@ if (isset($_SESSION['admin_error'])) {
                                 </tbody>
                             </table>
                         <?php else: ?>
-                            <p class="empty-message">No messages found.</p>
+                            <p class="text-muted small">No messages found.</p>
                         <?php endif; ?>
                     </div>
 
                     <!-- Profile Comments this user has written (Friend_Comments) -->
-                    <div class="user-detail-card mt-4">
+                    <div class="card card-body mt-4">
                         <p><strong>Profile Comments Written</strong></p>
                         <?php if (count($user_comments) > 0): ?>
-                            <table class="admin-table">
+                            <table class="table table-hover">
                                 <thead>
                                     <tr>
                                         <th>Comment</th>
@@ -590,12 +592,12 @@ if (isset($_SESSION['admin_error'])) {
                                 </tbody>
                             </table>
                         <?php else: ?>
-                            <p class="empty-message">No comments written.</p>
+                            <p class="text-muted small">No comments written.</p>
                         <?php endif; ?>
                     </div>
 
                 <?php else: ?>
-                    <p class="admin-error">User not found.</p>
+                    <div class="alert alert-danger">User not found.</div>
                 <?php endif; ?>
 
             <?php elseif ($page === 'suspended'): ?>
@@ -618,7 +620,7 @@ if (isset($_SESSION['admin_error'])) {
                 ?>
 
                 <?php if (count($suspended_users) > 0): ?>
-                    <table class="admin-table">
+                    <table class="table table-hover">
                         <thead>
                             <tr>
                                 <th>Name</th>
@@ -638,7 +640,7 @@ if (isset($_SESSION['admin_error'])) {
                                     </td>
                                     <td><?php echo htmlspecialchars($user['email'], ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td>
-                                        <span class="status-badge status-<?php echo htmlspecialchars($user['account_status'], ENT_QUOTES, 'UTF-8'); ?>">
+                                        <span class="badge status-<?php echo htmlspecialchars($user['account_status'], ENT_QUOTES, 'UTF-8'); ?>">
                                             <?php echo htmlspecialchars($user['account_status'], ENT_QUOTES, 'UTF-8'); ?>
                                         </span>
                                     </td>
@@ -657,7 +659,7 @@ if (isset($_SESSION['admin_error'])) {
                         </tbody>
                     </table>
                 <?php else: ?>
-                    <p class="empty-message">No suspended or banned users.</p>
+                    <p class="text-muted small">No suspended or banned users.</p>
                 <?php endif; ?>
 
             <?php elseif ($page === 'users'): ?>
@@ -678,7 +680,7 @@ if (isset($_SESSION['admin_error'])) {
                 $stmt->close();
                 ?>
 
-                <table class="admin-table">
+                <table class="table table-hover">
                     <thead>
                         <tr>
                             <th>Name</th>
@@ -700,7 +702,7 @@ if (isset($_SESSION['admin_error'])) {
                                 <td><?php echo htmlspecialchars($user['email'], ENT_QUOTES, 'UTF-8'); ?></td>
                                 <td><?php echo htmlspecialchars($user['user_type'], ENT_QUOTES, 'UTF-8'); ?></td>
                                 <td>
-                                    <span class="status-badge status-<?php echo htmlspecialchars($user['account_status'], ENT_QUOTES, 'UTF-8'); ?>">
+                                    <span class="badge status-<?php echo htmlspecialchars($user['account_status'], ENT_QUOTES, 'UTF-8'); ?>">
                                         <?php echo htmlspecialchars($user['account_status'], ENT_QUOTES, 'UTF-8'); ?>
                                     </span>
                                 </td>
