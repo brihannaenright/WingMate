@@ -4,106 +4,81 @@ require_once __DIR__ . '/../../config/config.php';
 
 wingmate_start_secure_session();
 
-// Check for session idle timeout (30 minutes)
-if (!wingmate_check_session_idle_timeout(1800)) {
-    header('Location: /features/auth/login.php?reason=session_expired');
-    exit;
-}
+if (!wingmate_check_session_idle_timeout(1800)) { header('Location: /features/auth/login.php?reason=session_expired'); exit; }
 
-// Gets current user ID
 $current_user_id = $_SESSION['user_id'] ?? null;
+if (!$current_user_id) { header('Location: /features/auth/login.php'); exit; }
 
-// Redirects to login if not logged in
-if (!$current_user_id) {
-    header('Location: /features/auth/login.php');
-    exit;
-}
+$voteSuccess = isset($_SESSION['vote_success']) ? (string) $_SESSION['vote_success'] : '';
+$voteError   = isset($_SESSION['vote_error'])   ? (string) $_SESSION['vote_error']   : '';
+unset($_SESSION['vote_success'], $_SESSION['vote_error']);
 
-// Initialize message variables
-$voteSuccess = '';
-$voteError   = '';
-
-// Retrieve any stored messages from session
-if (isset($_SESSION['vote_success'])) {
-    $voteSuccess = (string) $_SESSION['vote_success'];
-    unset($_SESSION['vote_success']);
-}
-
-if (isset($_SESSION['vote_error'])) {
-    $voteError = (string) $_SESSION['vote_error'];
-    unset($_SESSION['vote_error']);
-}
-
-// Handle POST actions
+// Handle POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Validate CSRF token before processing POST requests
     if (!wingmate_validate_csrf_token($_POST['csrf_token'] ?? null)) {
-        http_response_code(400);
         $_SESSION['vote_error'] = 'Session validation failed. Please refresh and try again.';
-        header('Location: /features/vote/vote.php');
-        exit;
+        header('Location: /features/vote/vote.php'); exit;
     }
 
-    $action = $_POST['action'] ?? '';
-
-    if ($action === 'cast_vote' && !empty($_POST['request_id'])) {
+    if (($_POST['action'] ?? '') === 'cast_vote' && !empty($_POST['request_id'])) {
         $request_id = (int) $_POST['request_id'];
         $vote_type  = ($_POST['vote_type'] ?? '') === 'approve' ? 1 : 0;
 
         try {
-            $stmt = $conn->prepare("INSERT IGNORE INTO Friend_Votes (request_id, friend_voter_id, vote_type) VALUES (?, ?, ?)");
-            $stmt->bind_param('iii', $request_id, $current_user_id, $vote_type);
+            // Check request exists and hasn't expired
+            $stmt = $conn->prepare("SELECT match_owner_id, matched_user_id, vote_expires_at FROM Match_Requests WHERE request_id = ? AND status = 'pending'");
+            $stmt->bind_param('i', $request_id);
             $stmt->execute();
+            $mr = $stmt->get_result()->fetch_assoc();
             $stmt->close();
 
-            $stmt = $conn->prepare(
-                "SELECT mr.match_owner_id, mr.matched_user_id,
-                        COUNT(fv.friend_voter_id) AS total_votes,
-                        COALESCE(SUM(fv.vote_type), 0) AS approved
-                 FROM Match_Requests mr
-                 LEFT JOIN Friend_Votes fv ON fv.request_id = mr.request_id
-                 WHERE mr.request_id = ?
-                 GROUP BY mr.request_id"
-            );
+            if (!$mr) {
+                $_SESSION['vote_error'] = 'This vote request no longer exists.';
+                header('Location: /features/vote/vote.php'); exit;
+            }
+
+            // Reject if timer has expired
+            if ($mr['vote_expires_at'] && strtotime($mr['vote_expires_at']) < time()) {
+                $stmt = $conn->prepare("UPDATE Match_Requests SET status = 'closed', closed_at = NOW() WHERE request_id = ?");
+                $stmt->bind_param('i', $request_id); $stmt->execute(); $stmt->close();
+                $_SESSION['vote_error'] = 'The voting window for this match has expired.';
+                header('Location: /features/vote/vote.php'); exit;
+            }
+
+            // Insert vote
+            $stmt = $conn->prepare("INSERT IGNORE INTO Friend_Votes (request_id, friend_voter_id, vote_type) VALUES (?, ?, ?)");
+            $stmt->bind_param('iii', $request_id, $current_user_id, $vote_type);
+            $stmt->execute(); $stmt->close();
+
+            // Recalculate Decision using voters only (not total friend count)
+            $stmt = $conn->prepare("SELECT mr.match_owner_id, mr.matched_user_id, COUNT(fv.friend_voter_id) AS total_votes, COALESCE(SUM(fv.vote_type), 0) AS approved FROM Match_Requests mr LEFT JOIN Friend_Votes fv ON fv.request_id = mr.request_id WHERE mr.request_id = ? GROUP BY mr.request_id");
             $stmt->bind_param('i', $request_id);
             $stmt->execute();
             $r = $stmt->get_result()->fetch_assoc();
             $stmt->close();
 
-            $ownerId   = (int)$r['match_owner_id'];
-            $matchedId = (int)$r['matched_user_id'];
-            $total     = (int)$r['total_votes'];
-            $approved  = (int)$r['approved'];
+            $ownerId   = (int) $r['match_owner_id'];
+            $matchedId = (int) $r['matched_user_id'];
+            $total     = (int) $r['total_votes'];
+            $approved  = (int) $r['approved'];
 
-            $stmt = $conn->prepare("SELECT COUNT(*) AS c FROM Friendship WHERE status='accepted' AND (user_id = ? OR friend_id = ?)");
-            $stmt->bind_param('ii', $ownerId, $ownerId);
-            $stmt->execute();
-            $friendCount = (int)$stmt->get_result()->fetch_assoc()['c'];
-            $stmt->close();
-
-            $pct      = $friendCount > 0 ? (int) round(($approved / $friendCount) * 100) : 0;
+            // Percentage based on voters only — 1 approve out of 1 vote = 100%
+            $pct      = $total > 0 ? (int) round(($approved / $total) * 100) : 0;
             $is_match = $pct >= 40 ? 1 : 0;
 
-            $stmt = $conn->prepare("INSERT INTO Decision (match_request_id, total_votes, approval_votes, approval_percentage, is_match)
-                VALUES (?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE total_votes = ?, approval_votes = ?, approval_percentage = ?, is_match = ?");
+            $stmt = $conn->prepare("INSERT INTO Decision (match_request_id, total_votes, approval_votes, approval_percentage, is_match) VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE total_votes = ?, approval_votes = ?, approval_percentage = ?, is_match = ?");
             $stmt->bind_param('iiidiiiid', $request_id, $total, $approved, $pct, $is_match, $total, $approved, $pct, $is_match);
-            $stmt->execute();
-            $stmt->close();
+            $stmt->execute(); $stmt->close();
 
+            // Check if both sides reached 40% — if so activate the match
             if ($is_match === 1) {
-                $stmt = $conn->prepare(
-                    "SELECT mr.request_id, d.is_match
-                     FROM Match_Requests mr
-                     LEFT JOIN Decision d ON d.match_request_id = mr.request_id
-                     WHERE mr.match_owner_id = ? AND mr.matched_user_id = ?"
-                );
+                $stmt = $conn->prepare("SELECT mr.request_id, d.is_match FROM Match_Requests mr LEFT JOIN Decision d ON d.match_request_id = mr.request_id WHERE mr.match_owner_id = ? AND mr.matched_user_id = ?");
                 $stmt->bind_param('ii', $matchedId, $ownerId);
                 $stmt->execute();
                 $reciprocal = $stmt->get_result()->fetch_assoc();
                 $stmt->close();
 
-                if ($reciprocal && (int)$reciprocal['is_match'] === 1) {
+                if ($reciprocal && (int) $reciprocal['is_match'] === 1) {
                     $user1 = min($ownerId, $matchedId);
                     $user2 = max($ownerId, $matchedId);
 
@@ -114,23 +89,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt->close();
 
                     if ($existing && $existing['status'] !== 'active') {
-                        $matchId = (int)$existing['match_id'];
+                        $matchId = (int) $existing['match_id'];
 
                         $stmt = $conn->prepare("UPDATE Matches SET status = 'active', matched_at = NOW() WHERE match_id = ?");
-                        $stmt->bind_param('i', $matchId);
-                        $stmt->execute();
-                        $stmt->close();
+                        $stmt->bind_param('i', $matchId); $stmt->execute(); $stmt->close();
 
                         $stmt = $conn->prepare("UPDATE Match_Requests SET status = 'approved', closed_at = NOW() WHERE request_id IN (?, ?)");
-                        $stmt->bind_param('ii', $request_id, $reciprocal['request_id']);
-                        $stmt->execute();
-                        $stmt->close();
+                        $stmt->bind_param('ii', $request_id, $reciprocal['request_id']); $stmt->execute(); $stmt->close();
 
                         $stmt = $conn->prepare("INSERT INTO Notifications (recipient_id, notification_type, reference_type, reference_id, created_at) VALUES (?, 'match_approved', 'match', ?, NOW())");
-                        $stmt->bind_param('ii', $user1, $matchId);
-                        $stmt->execute();
-                        $stmt->bind_param('ii', $user2, $matchId);
-                        $stmt->execute();
+                        $stmt->bind_param('ii', $user1, $matchId); $stmt->execute();
+                        $stmt->bind_param('ii', $user2, $matchId); $stmt->execute();
                         $stmt->close();
                     }
                 }
@@ -142,17 +111,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    header('Location: /features/vote/vote.php');
-    exit;
+    header('Location: /features/vote/vote.php'); exit;
 }
+
+// Auto-close expired requests before loading
+try {
+    $stmt = $conn->prepare("UPDATE Match_Requests SET status = 'closed', closed_at = NOW() WHERE status = 'pending' AND vote_expires_at IS NOT NULL AND vote_expires_at < NOW()");
+    $stmt->execute(); $stmt->close();
+} catch (Exception $e) {}
 
 include __DIR__ . '/../../includes/nav-header.php';
 
-// Fetch my pending match votes (matches I own still being voted on)
+// Fetch my pending match votes
 $myVotes = [];
 try {
     $stmt = $conn->prepare("
-        SELECT mr.request_id, mr.matched_user_id,
+        SELECT mr.request_id, mr.matched_user_id, mr.vote_expires_at,
                up.first_name, up.last_name, p.photo_url,
                COALESCE(d.total_votes, 0) AS total_votes,
                COALESCE(d.approval_percentage, 0) AS approval_percentage
@@ -167,16 +141,14 @@ try {
     $stmt->execute();
     $myVotes = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
-} catch (Exception $e) {
-    $voteError = 'An error occurred while loading your match votes.';
-}
+} catch (Exception $e) { $voteError = 'An error occurred while loading your match votes.'; }
 
 // Fetch vote requests sent to me that I haven't voted on yet
 $friendVotes = [];
 try {
     $stmt = $conn->prepare("
         SELECT n.reference_id AS request_id,
-               mr.match_owner_id,
+               mr.match_owner_id, mr.matched_user_id, mr.vote_expires_at,
                req.first_name AS req_first, req.last_name AS req_last, req_p.photo_url AS req_photo,
                cand.first_name AS cand_first, cand.last_name AS cand_last, cand_p.photo_url AS cand_photo
         FROM Notifications n
@@ -189,15 +161,13 @@ try {
         WHERE n.recipient_id = ? AND n.notification_type = 'vote_request'
           AND n.reference_type = 'match_request' AND mr.status = 'pending'
           AND fv.friend_voter_id IS NULL
-        ORDER BY n.created_at DESC
+        ORDER BY mr.vote_expires_at ASC
     ");
     $stmt->bind_param('ii', $current_user_id, $current_user_id);
     $stmt->execute();
     $friendVotes = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
-} catch (Exception $e) {
-    $voteError = 'An error occurred while loading vote requests.';
-}
+} catch (Exception $e) { $voteError = 'An error occurred while loading vote requests.'; }
 ?>
 
 <link rel="stylesheet" href="./vote.css">
@@ -229,8 +199,9 @@ try {
                     <?php endif; ?>
 
                     <?php foreach ($myVotes as $v):
-                        $pct      = (int) $v['approval_percentage'];
-                        $hasVotes = (int) $v['total_votes'] > 0;
+                        $pct       = (int) $v['approval_percentage'];
+                        $hasVotes  = (int) $v['total_votes'] > 0;
+                        $expiresAt = $v['vote_expires_at'] ? strtotime($v['vote_expires_at']) * 1000 : null;
                     ?>
                     <div class="vote-card" id="match-<?php echo (int) $v['request_id']; ?>">
                         <div class="d-flex align-items-center gap-2 mb-2">
@@ -241,9 +212,17 @@ try {
                             <?php endif; ?>
                             <div>
                                 <p class="vote-name"><?php echo htmlspecialchars($v['first_name'] . ' ' . $v['last_name']); ?></p>
-                                <small class="text-primary">View Profile &middot; See Comments</small>
+                                <small>
+                                    <a href="/features/profile/profile.php?user_id=<?php echo (int) $v['matched_user_id']; ?>" class="text-primary">View Profile</a>
+                                </small>
                             </div>
                         </div>
+
+                        <?php if ($expiresAt): ?>
+                            <div class="vote-timer mb-2" data-expires="<?php echo $expiresAt; ?>">
+                                <small class="vote-timer__label">⏱ Voting closes in: <span class="vote-timer__countdown text-danger fw-bold"></span></small>
+                            </div>
+                        <?php endif; ?>
 
                         <hr class="my-2">
                         <p class="vote-stats-label">What Friends Think So Far:</p>
@@ -274,7 +253,9 @@ try {
                         <p class="empty-state-message">No pending vote requests right now.</p>
                     <?php endif; ?>
 
-                    <?php foreach ($friendVotes as $v): ?>
+                    <?php foreach ($friendVotes as $v):
+                        $expiresAt = $v['vote_expires_at'] ? strtotime($v['vote_expires_at']) * 1000 : null;
+                    ?>
                     <div class="vote-card">
                         <!-- Requester -->
                         <div class="d-flex align-items-center gap-2 mb-2">
@@ -298,17 +279,25 @@ try {
                             <?php endif; ?>
                             <div>
                                 <p class="vote-name"><?php echo htmlspecialchars($v['cand_first'] . ' ' . $v['cand_last']); ?></p>
-                                <small class="text-primary">View Profile</small>
+                                <small>
+                                    <a href="/features/profile/profile.php?user_id=<?php echo (int) $v['matched_user_id']; ?>" class="text-primary">View Profile</a>
+                                </small>
                             </div>
                         </div>
 
+                        <?php if ($expiresAt): ?>
+                            <div class="vote-timer mb-2" data-expires="<?php echo $expiresAt; ?>">
+                                <small class="vote-timer__label">⏱ Vote closes in: <span class="vote-timer__countdown text-danger fw-bold"></span></small>
+                            </div>
+                        <?php endif; ?>
+
                         <!-- Vote buttons -->
-                        <form method="POST" class="d-flex gap-2">
+                        <form method="POST" class="d-flex gap-2 vote-form" data-expires="<?php echo $expiresAt ?? ""; ?>">
                             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(wingmate_get_csrf_token(), ENT_QUOTES, 'UTF-8'); ?>">
                             <input type="hidden" name="action" value="cast_vote">
                             <input type="hidden" name="request_id" value="<?php echo (int) $v['request_id']; ?>">
-                            <button type="submit" name="vote_type" value="approve" class="button-primary w-50">✓ Approve</button>
-                            <button type="submit" name="vote_type" value="dislike" class="button-secondary w-50">✕ Dislike</button>
+                            <button type="submit" name="vote_type" value="approve" class="button-primary w-50 vote-btn">✓ Approve</button>
+                            <button type="submit" name="vote_type" value="dislike" class="button-secondary w-50 vote-btn">✕ Dislike</button>
                         </form>
                     </div>
                     <?php endforeach; ?>
@@ -319,5 +308,40 @@ try {
 
     </div>
 </div>
+
+<script>
+function formatTimeLeft(ms) {
+    if (ms <= 0) return 'Expired';
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    return `${h}h ${m}m ${s}s`;
+}
+
+function updateTimers() {
+    const now = Date.now();
+    document.querySelectorAll('.vote-timer').forEach(timer => {
+        const expires   = parseInt(timer.dataset.expires, 10);
+        if (!expires || expires === 0) return;
+        const countdown = timer.querySelector('.vote-timer__countdown');
+        const timeLeft  = expires - now;
+        countdown.textContent = formatTimeLeft(timeLeft);
+        if (timeLeft <= 0) timer.classList.add('vote-timer--expired');
+    });
+    document.querySelectorAll('.vote-form').forEach(form => {
+        const expires = parseInt(form.dataset.expires, 10);
+        if (expires && expires > 0 && expires - Date.now() <= 0) {
+            form.querySelectorAll('.vote-btn').forEach(btn => {
+                btn.disabled = true;
+                btn.title    = 'Voting window has closed';
+            });
+        }
+    });
+}
+
+updateTimers();
+setInterval(updateTimers, 1000);
+</script>
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>
