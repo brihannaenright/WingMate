@@ -111,6 +111,31 @@
     font-size: 0.875rem;
 }
 
+/* ── Timer ── */
+.vote-timer {
+    background: #fff8f0;
+    border: 1px solid #f5bb6a;
+    border-radius: 0.5rem;
+    padding: 0.35rem 0.65rem;
+    display: inline-block;
+}
+
+.vote-timer--expired {
+    background: #fff0f0;
+    border-color: #f5a0a0;
+}
+
+.vote-timer--expired .vote-timer__countdown {
+    color: #888 !important;
+}
+
+/* Disabled vote buttons when expired */
+.vote-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 @media (max-width: 768px) {
     .vote-page { padding: 0 0.5rem 3rem; }
 }
