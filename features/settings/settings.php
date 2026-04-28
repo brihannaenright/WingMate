@@ -471,7 +471,7 @@ include __DIR__ . '/../../includes/nav-header.php';
                     <?php endforeach; ?>
                 </div>
             </div>
-            <button type="button" class="btn profile-btn-upload" onclick="openTagPickerModal()">Edit</button>
+            <button type="button" class="button-secondary" onclick="openTagPickerModal()">Edit</button>
         </div>
 
         <!-- Delete Account: irreversible self-serve action -->
@@ -480,7 +480,7 @@ include __DIR__ . '/../../includes/nav-header.php';
                 <div class="settings-field-label">Delete Account</div>
                 <p class="settings-field-row">Permanently disable your account. You won't be able to log back in.</p>
             </div>
-            <button type="button" class="btn profile-btn-remove" onclick="openDeleteAccountModal()">Delete</button>
+            <button type="button" class="button" onclick="openDeleteAccountModal()">Delete</button>
         </div>
     </div>
 </div>
@@ -552,24 +552,24 @@ include __DIR__ . '/../../includes/nav-header.php';
                 </div>
             </div>
             <div class="modal-footer profile-modal-footer">
-                <button type="button" class="btn profile-btn-cancel" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn profile-btn-save" onclick="saveBio()">Save</button>
+                <button type="button" class="button" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="button-secondary" onclick="saveBio()">Save</button>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Profile Picture Edit Modal -->
-<div class="modal fade" id="picModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="picModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content profile-modal-content">
             <div class="modal-header profile-modal-header">
                 <h5 class="modal-title">Change Profile Picture</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body text-center">
-                <div class="profile-pic-preview-wrapper">
-                    <img id="picPreview" src="" alt="Preview" class="profile-pic-preview" style="display:none;">
+            <div class="modal-body text-center d-flex flex-column align-items-center">
+                <div class="profile-pic-preview-wrapper d-flex align-items-center justify-content-center mx-0">
+                    <img id="picPreview" src="" alt="Preview" class="profile-pic-preview rounded object-fit-cover">
                     <div class="profile-pic-preview-empty" id="picPreviewEmpty">No photo</div>
                 </div>
                 <label class="btn profile-btn-upload mt-3">
@@ -578,10 +578,10 @@ include __DIR__ . '/../../includes/nav-header.php';
                 </label>
             </div>
             <div class="modal-footer profile-modal-footer">
-                <button type="button" class="btn profile-btn-remove" id="removePicBtn" onclick="removeProfilePic()">Remove</button>
+                <button type="button" class="button-primary" id="removePicBtn" onclick="removeProfilePic()">Remove</button>
                 <div class="ms-auto d-flex gap-2">
-                    <button type="button" class="btn profile-btn-cancel" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn profile-btn-save" onclick="saveProfilePic()">Save</button>
+                    <button type="button" class="button-primary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="button-secondary" onclick="saveProfilePic()">Save</button>
                 </div>
             </div>
         </div>
@@ -818,6 +818,7 @@ include __DIR__ . '/../../includes/nav-header.php';
         `).join('');
         document.getElementById('addPhotoBtn').style.display = carouselPhotos.length >= 6 ? 'none' : '';
     }
+
 
     function updatePhotoThumbnails() {
         const container = document.getElementById('photoThumbnails');
