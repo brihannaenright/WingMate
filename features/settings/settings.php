@@ -425,7 +425,7 @@ include __DIR__ . '/../../includes/nav-header.php';
                     <?php endif; ?>
                 </div>
             </div>
-            <button type="button" class="btn profile-btn-upload" onclick="openPicModal()">Edit</button>
+            <button type="button" class="button-secondary" onclick="openPicModal()">Edit</button>
         </div>
 
         <!-- Photos (swipable carousel) -->
@@ -441,7 +441,7 @@ include __DIR__ . '/../../includes/nav-header.php';
                     <?php endif; ?>
                 </div>
             </div>
-            <button type="button" class="btn profile-btn-upload" onclick="openPhotosModal()">Edit</button>
+            <button type="button" class="button-secondary" onclick="openPhotosModal()">Edit</button>
         </div>
 
         <!-- Bio / Location / Gender -->
@@ -453,7 +453,7 @@ include __DIR__ . '/../../includes/nav-header.php';
                 <p class="settings-field-row"><strong>Relationship Type:</strong> <span id="relationshipDisplay"><?php echo htmlspecialchars($RELATIONSHIP_LABELS[$userRelationship] ?? 'Not set'); ?></span></p>
                 <p class="settings-field-row"><strong>Bio:</strong> <span id="bioDisplay"><?php echo htmlspecialchars($userBio ?: 'Not set'); ?></span></p>
             </div>
-            <button type="button" class="btn profile-btn-upload" onclick="openBioModal()">Edit</button>
+            <button type="button" class="button-secondary" onclick="openBioModal()">Edit</button>
         </div>
 
         <!-- About Me Tags -->
@@ -502,8 +502,8 @@ include __DIR__ . '/../../includes/nav-header.php';
                 </div>
             </div>
             <div class="modal-footer profile-modal-footer">
-                <button type="button" class="btn profile-btn-cancel" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn profile-btn-remove" onclick="deleteAccount()">Delete My Account</button>
+                <button type="button" class="button-primary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="button-secondary" onclick="deleteAccount()">Delete My Account</button>
             </div>
         </div>
     </div>
@@ -581,7 +581,7 @@ include __DIR__ . '/../../includes/nav-header.php';
                 <button type="button" class="button-primary" id="removePicBtn" onclick="removeProfilePic()">Remove</button>
                 <div class="ms-auto d-flex gap-2">
                     <button type="button" class="button-primary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="button-secondary" onclick="saveProfilePic()">Save</button>
+                    <button type="button" class="button-secondary" id="savePicBtn" onclick="saveProfilePic()">Save</button>
                 </div>
             </div>
         </div>
@@ -605,7 +605,7 @@ include __DIR__ . '/../../includes/nav-header.php';
                 <div class="form-text">Max 6 photos</div>
             </div>
             <div class="modal-footer profile-modal-footer">
-                <button type="button" class="btn profile-btn-save" data-bs-dismiss="modal">Done</button>
+                <button type="button" class="button-primary" data-bs-dismiss="modal">Done</button>
             </div>
         </div>
     </div>
@@ -624,8 +624,8 @@ include __DIR__ . '/../../includes/nav-header.php';
                 <div id="map"></div>
             </div>
             <div class="modal-footer profile-modal-footer">
-                <button type="button" class="btn profile-btn-cancel" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn profile-btn-save" id="confirmLocationBtn" onclick="confirmLocation()" disabled>Confirm Location</button>
+                <button type="button" class="button-primary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="button-secondary" id="confirmLocationBtn" onclick="confirmLocation()" disabled>Confirm Location</button>
             </div>
         </div>
     </div>
@@ -643,8 +643,8 @@ include __DIR__ . '/../../includes/nav-header.php';
                 <div class="profile-tag-picker" id="tagPickerGrid"></div>
             </div>
             <div class="modal-footer profile-modal-footer">
-                <button type="button" class="btn profile-btn-cancel" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn profile-btn-save" onclick="saveTags()">Save</button>
+                <button type="button" class="button-primary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="button-secondary" onclick="saveTags()">Save</button>
             </div>
         </div>
     </div>
@@ -726,6 +726,9 @@ include __DIR__ . '/../../includes/nav-header.php';
         selectedPicFile = null;
         document.getElementById('picFileInput').value = '';
         document.getElementById('removePicBtn').style.display = primaryPhoto ? '' : 'none';
+
+        const saveBtn = document.getElementById('savePicBtn');
+        if (saveBtn) saveBtn.disabled = false;
         new bootstrap.Modal(document.getElementById('picModal')).show();
     }
 
@@ -746,7 +749,7 @@ include __DIR__ . '/../../includes/nav-header.php';
             return;
         }
 
-        const saveBtn = document.querySelector('#picModal .profile-btn-save');
+        const saveBtn = document.getElementById('savePicBtn');
         if (saveBtn?.disabled) return;
         if (saveBtn) saveBtn.disabled = true;
 
@@ -769,10 +772,10 @@ include __DIR__ . '/../../includes/nav-header.php';
                     alert('Upload failed: ' + (data.error || 'Unknown error'));
                 }
             })
-            .catch(err => alert('Error: ' + err.message))
-            .finally(() => {
-                if (saveBtn) saveBtn.disabled = false;
-            });
+        .catch(err => {
+            alert('Error: ' + err.message);
+            if (saveBtn) saveBtn.disabled = false; // Re-enable only on error
+        });
     }
 
     function removeProfilePic() {

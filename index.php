@@ -213,7 +213,7 @@ declare(strict_types=1);
                     <div class="step-card bg-white text-center py-5 px-4 rounded">
                         <div class="step-number d-flex align-items-center justify-content-center rounded-circle text-white fw-bold mx-auto mb-3">2</div>
                         <h3 class="fs-card-heading mb-3">You Decide Who Matters</h3>
-                        <p class="fs-body text-secondary m-0">Swipe through potential matches. Your choices matter because you're thinking about what your friends will think.</p>
+                        <p class="fs-body text-secondary m-0">Explore potential matches. Your choices matter because you're thinking about what your friends will think.</p>
                     </div>
                 </div>
                 <div class="col-md-6 col-lg-4">
@@ -263,7 +263,7 @@ declare(strict_types=1);
                 <div class="col-md-6 col-lg-4">
                     <div class="feature-card text-center bg-light rounded p-4">
                         <div class="feature-icon d-inline-block mb-3">⭐</div>
-                        <h4 class="fs-card-heading mb-2">Thoughtful Swiping</h4>
+                        <h4 class="fs-card-heading mb-2">Thoughtful Connections</h4>
                         <p class="fs-body text-secondary m-0">The knowledge that your friends will judge your choices makes you swipe more thoughtfully and authentically.</p>
                     </div>
                 </div>
@@ -271,7 +271,7 @@ declare(strict_types=1);
                     <div class="feature-card text-center bg-light rounded p-4">
                         <div class="feature-icon d-inline-block mb-3">🛡️</div>
                         <h4 class="fs-card-heading mb-2">Safe & Secure</h4>
-                        <p class="fs-body text-secondary m-0">Enterprise-level security with encrypted messaging, verified profiles, and safe voting processes.</p>
+                        <p class="fs-body text-secondary m-0">Enterprise-level security with verified profiles, and safe voting processes.</p>
                     </div>
                 </div>
                 <div class="col-md-6 col-lg-4">
@@ -322,7 +322,7 @@ declare(strict_types=1);
                     <span class="faq-toggle">▼</span>
                 </div>
                 <div class="faq-answer bg-light">
-                    <p class="answer-p m-0">Yes! Your privacy is our priority. Your friends only see profiles you've swiped on—not your personal information, messages, or match history. All messages between you and your matches are private and encrypted. You control who's in your squad and what they can see.</p>
+                    <p class="answer-p m-0">Yes! Your privacy is our priority. Your friends only see profiles you've matched —not your personal information, messages, or match history. All messages between you and your matches are private and encrypted. You control who's in your squad and what they can see.</p>
                 </div>
             </div>
 
