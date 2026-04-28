@@ -179,7 +179,7 @@ if (!$existing2) {
 }
 
 // Load viewer profile
-$stmt = $conn->prepare("SELECT gender, latitude, longitude FROM User_Profile WHERE user_id = ?");
+$stmt = $conn->prepare("SELECT gender, latitude, longitude, TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) AS age FROM User_Profile WHERE user_id = ?");
 $stmt->bind_param('i', $current_user_id);
 $stmt->execute();
 $viewer = $stmt->get_result()->fetch_assoc();
@@ -224,8 +224,7 @@ $friendsMissing = $friendCount === 0;
 $prefsIncomplete = !$prefs
     || $prefs['min_age'] === null || $prefs['max_age'] === null
     || $prefs['max_distance_km'] === null || (int)$prefs['max_distance_km'] <= 0
-    || $prefs['relationship_type'] === null
-    || empty($viewerLookingForTagIds);
+    || $prefs['relationship_type'] === null;
 
 // Form defaults (used when prefs missing)
 $preferred_gender = $prefs['preferred_gender'] ?? null; // NULL = All
@@ -239,7 +238,9 @@ $candidatesList = [];
 if (!$locationMissing && !$friendsMissing && !$prefsIncomplete) {
     $viewerLat = (float)$viewer['latitude'];
     $viewerLng = (float)$viewer['longitude'];
+    $viewerAge = (int)$viewer['age'];
     $prefGender = $prefs['preferred_gender'];
+    $prefRelType = $prefs['relationship_type'];
     $minAge = (int)$prefs['min_age'];
     $maxAge = (int)$prefs['max_age'];
     $maxDistance = (int)$prefs['max_distance_km'];
@@ -278,6 +279,10 @@ if (!$locationMissing && !$friendsMissing && !$prefsIncomplete) {
         $params[] = $prefGender;
     }
 
+    $sql .= " AND EXISTS (SELECT 1 FROM User_Preferences WHERE user_id = c.user_id AND relationship_type = ?)";
+    $types .= 's';
+    $params[] = $prefRelType;
+
     if (!empty($viewerLookingForTagIds)) {
         $placeholders = implode(',', array_fill(0, count($viewerLookingForTagIds), '?'));
         $sql .= " AND EXISTS (SELECT 1 FROM User_Tags ut
@@ -290,9 +295,10 @@ if (!$locationMissing && !$friendsMissing && !$prefsIncomplete) {
         }
     }
 
-    $sql .= " HAVING distance_km <= ? ORDER BY distance_km ASC";
-    $types .= 'i';
+    $sql .= " HAVING distance_km <= ? ORDER BY ABS(age - ?) ASC, distance_km ASC";
+    $types .= 'ii';
     $params[] = $maxDistance;
+    $params[] = $viewerAge;
 
     $stmt = $conn->prepare($sql);
     $stmt->bind_param($types, ...$params);
@@ -357,7 +363,7 @@ if (!$locationMissing && !$friendsMissing && !$prefsIncomplete) {
 <link rel="stylesheet" href="/features/settings/settings.css">
 <link rel="stylesheet" href="swipe.css">
 
-<div class="swipe-page">
+<div class="swipe-page min-vh-100">
 
     <?php if ($locationMissing): ?>
         <div class="alert alert-wingmate">
@@ -381,7 +387,7 @@ if (!$locationMissing && !$friendsMissing && !$prefsIncomplete) {
                 <div class="preferences-column">
                     <!-- Gender Preference -->
                     <div class="preference-field">
-                        <label>Gender Preference:</label>
+                        <label class="form-label">Gender Preference:</label>
                         <div class="gender-checklist">
                             <?php
                             $genderOptions = [
@@ -405,7 +411,7 @@ if (!$locationMissing && !$friendsMissing && !$prefsIncomplete) {
 
                     <!-- Age Preference -->
                     <div class="preference-field">
-                        <label>Age Preference:</label>
+                        <label class="form-label">Age Preference:</label>
                         <div class="age-slider" id="ageSlider" data-min="18" data-max="100">
                             <div class="age-slider-track"></div>
                             <div class="age-slider-fill" id="ageFill"></div>
@@ -423,8 +429,8 @@ if (!$locationMissing && !$friendsMissing && !$prefsIncomplete) {
 
                     <!-- Distance Preference -->
                     <div class="preference-field">
-                        <label>Distance Preference:</label>
-                        <input type="range" name="max_distance_km" min="0" max="100" value="<?php echo (int) $max_distance; ?>" id="distanceSlider">
+                        <label class="form-label">Distance Preference:</label>
+                        <input type="range" name="max_distance_km" min="0" max="100" value="<?php echo (int) $max_distance; ?>" id="distanceSlider" class="form-range">
                         <span class="range-label" id="distanceLabel"><?php echo (int) $max_distance; ?>km</span>
                     </div>
                 </div>
@@ -432,8 +438,8 @@ if (!$locationMissing && !$friendsMissing && !$prefsIncomplete) {
                 <div class="preferences-column">
                     <!-- Relationship Type -->
                     <div class="preference-field">
-                        <label>Relationship Type:</label>
-                        <select name="relationship_type" class="preference-select">
+                        <label class="form-label">Relationship Type:</label>
+                        <select name="relationship_type" class="form-select preference-select">
                             <option value="" <?php echo $relationship_type === '' ? 'selected' : ''; ?>>Select</option>
                             <option value="short_term" <?php echo $relationship_type === 'short_term' ? 'selected' : ''; ?>>Short term</option>
                             <option value="long_term" <?php echo $relationship_type === 'long_term' ? 'selected' : ''; ?>>Long term</option>
@@ -443,7 +449,7 @@ if (!$locationMissing && !$friendsMissing && !$prefsIncomplete) {
 
                     <!-- Looking For Attributes -->
                     <div class="preference-field">
-                        <label>Looking For (Attributes):</label>
+                        <label class="form-label">Looking For (Attributes):</label>
                         <div class="looking-for-pills" id="lookingForPills">
                             <?php foreach ($userLookingForTags as $tag): ?>
                                 <span class="looking-for-pill"><?php echo htmlspecialchars($tag['tag_name']); ?></span>
@@ -459,31 +465,32 @@ if (!$locationMissing && !$friendsMissing && !$prefsIncomplete) {
     </details>
 
     <?php if (!$locationMissing && !$friendsMissing && !$prefsIncomplete): ?>
-        <div class="swipe-container"<?php echo empty($candidatesList) ? ' style="display:none;"' : ''; ?>>
+        <div class="swipe-container mx-auto <?php echo empty($candidatesList) ? 'd-none' : ''; ?>">
             <div class="row g-4">
 
-                <!-- 1. Banner (top-left) -->
+                <!-- Banner (top-left) -->
                 <div class="col-12 col-md-6 col-lg-7">
-                    <div class="swipe-banner h-100">
-                        <div class="swipe-banner-bg"></div>
-                        <div class="swipe-avatar-wrapper">
-                            <img src="" alt="Profile photo" class="swipe-avatar">
+                    <div class="swipe-banner position-relative overflow-hidden h-100 rounded d-flex align-items-stretch">
+                        <div class="swipe-banner-bg position-absolute top-0 start-0 end-0 bottom-0 overflow-hidden"></div>
+                        <div class="swipe-avatar-wrapper d-flex align-items-center p-3 flex-shrink-0 position-relative">
+                            <img src="" alt="Profile photo" class="swipe-avatar rounded-circle object-fit-cover border border-white bg-white">
                         </div>
-                        <div class="card swipe-info-card">
-                            <h1 class="swipe-name-age"></h1>
-                            <div class="swipe-location">
-                                <span class="swipe-location-icon"></span>
-                            </div>
-                            <div class="swipe-gender"></div>
-                            <p class="swipe-bio"></p>
+                        <div class="card swipe-info-card position-relative flex-grow-1 m-3 m-md-4 p-4 rounded border-0 justify-content-center">
+                            <h2 class="swipe-name-age fw-bold mb-1"></h2>
+                            <p class="swipe-location mb-2">
+                                <span class="swipe-location-icon">📍</span>
+                                <span class="swipe-location-text"></span>
+                            </p>
+                            <div class="swipe-gender text-muted mb-2"></div>
+                            <p class="swipe-bio text-muted mb-0"></p>
                         </div>
                     </div>
                 </div>
 
-                <!-- 2. Photo Carousel (top-right) -->
+                <!-- Photo Carousel (top-right) -->
                 <div class="col-12 col-md-6 col-lg-5">
-                    <div class="swipe-photos-card">
-                        <div id="swipePhotoCarousel" class="carousel slide swipe-photo-carousel" data-bs-ride="false" data-bs-interval="false">
+                    <div class="swipe-photos-card rounded d-flex flex-column p-3 position-relative">
+                        <div id="swipePhotoCarousel" class="carousel slide swipe-photo-carousel flex-grow-1 mh-0 rounded overflow-hidden position-relative" data-bs-ride="false" data-bs-interval="false">
                             <div class="carousel-indicators"></div>
                             <div class="carousel-inner"></div>
                             <button class="carousel-control-prev" type="button" data-bs-target="#swipePhotoCarousel" data-bs-slide="prev">
@@ -495,47 +502,47 @@ if (!$locationMissing && !$friendsMissing && !$prefsIncomplete) {
                                 <span class="visually-hidden">Next</span>
                             </button>
                         </div>
-                        <div class="swipe-photo-empty"></div>
+                        <div class="swipe-photo-empty d-none align-items-center justify-content-center flex-grow-1 rounded p-3">No Photos</div>
                     </div>
                 </div>
 
-                <!-- 3. Tags + Friends (bottom-left) -->
+                <!-- Tags + Friends (bottom-left) -->
                 <div class="col-12 col-md-6 col-lg-7">
-                    <div class="swipe-tags-card row g-4">
+                    <div class="swipe-tags-card row g-4 h-100">
                         <div class="col-12 col-lg-auto">
-                            <div class="card swipe-tags-sidebar h-100">
-                                <h4 class="swipe-tags-title">About Me</h4>
+                            <div class="card swipe-tags-sidebar h-100 border-0 rounded p-4 align-items-center" id="aboutMePills">
+                                <h4 class="swipe-tags-title text-center fw-bold mb-3 fs-6">About Me</h4>
                             </div>
                         </div>
                         <div class="col-12 col-lg">
-                            <div class="card swipe-friends-card h-100">
-                                <h3 class="swipe-friends-title">What My Friends Say About Me</h3>
+                            <div class="card swipe-friends-card h-100 border-0 rounded p-4 position-relative overflow-hidden">
+                                <h3 class="swipe-friends-title text-center fw-bold mb-3 position-relative z-1">What My Friends Say About Me</h3>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 4. Looking For (bottom-right) -->
+                <!-- Looking For (bottom-right) -->
                 <div class="col-12 col-md-6 col-lg-5">
-                    <div class="card swipe-looking-card h-100">
-                        <h3 class="swipe-looking-title">Looking For</h3>
-                        <div class="swipe-relationship-type"></div>
-                        <div class="swipe-looking-pills"></div>
+                    <div class="card swipe-looking-card h-100 border-0 rounded p-4 d-flex flex-column align-items-center justify-content-center">
+                        <h3 class="swipe-looking-title text-center fw-bold mb-3 text-white">Looking For</h3>
+                        <div class="swipe-relationship-type d-inline-block fw-bold mb-3"></div>
+                        <div class="swipe-looking-pills d-flex flex-wrap justify-content-center gap-2"></div>
                     </div>
                 </div>
 
             </div>
 
-            <!-- 5. Skip / Match Buttons (fixed, outside the grid) -->
-            <div class="swipe-actions">
-                <button class="btn btn-light rounded-pill swipe-btn--skip">Skip</button>
-                <button class="btn btn-primary rounded-pill swipe-btn--match">Match</button>
-            </div>
-
         </div>
-        <div class="swipe-empty" style="text-align:center;padding:80px 20px;<?php echo !empty($candidatesList) ? 'display:none;' : ''; ?>">
-            <h2>No more matches</h2>
-            <p>Adjust the filters above to widen your search.</p>
+
+        <!-- Skip / Match Buttons (fixed to viewport, outside the container so transforms don't trap them) -->
+        <div class="swipe-actions position-fixed bottom-0 start-0 end-0 d-flex justify-content-center gap-3 px-4 py-3 <?php echo empty($candidatesList) ? 'd-none' : ''; ?>">
+            <button class="btn btn-light rounded-pill fw-bold swipe-btn--skip">Skip</button>
+            <button class="btn btn-primary rounded-pill fw-bold swipe-btn--match">Match</button>
+        </div>
+        <div class="swipe-empty text-center px-3 <?php echo !empty($candidatesList) ? 'd-none' : ''; ?>" style="padding-top:80px;padding-bottom:80px;">
+            <h2 class="fw-bold">No more matches</h2>
+            <p class="text-muted">Adjust the filters above to widen your search.</p>
         </div>
     <?php elseif ($prefsIncomplete && !$locationMissing && !$friendsMissing): ?>
         <div class="alert alert-wingmate">
@@ -725,8 +732,191 @@ function updateLookingForPills() {
 <?php if (!$locationMissing && !$friendsMissing && !$prefsIncomplete): ?>
 <script>
     const swipeCandidates = <?php echo json_encode($candidatesList); ?>;
+
+    // Candidate deck loaded from PHP via swipeCandidates
+    const RELATIONSHIP_LABELS = {
+        short_term: 'Short term',
+        long_term: 'Long term',
+        fun: 'Looking for fun'
+    };
+    const GENDER_LABELS = {
+        male: 'Male',
+        female: 'Female',
+        'non-binary': 'Non-binary'
+    };
+
+    const el = {
+        container: document.querySelector('.swipe-container'),
+        empty: document.querySelector('.swipe-empty'),
+        avatar: document.querySelector('.swipe-avatar'),
+        nameAge: document.querySelector('.swipe-name-age'),
+        location: document.querySelector('.swipe-location-text'),
+        gender: document.querySelector('.swipe-gender'),
+        bio: document.querySelector('.swipe-bio'),
+        carousel: document.getElementById('swipePhotoCarousel'),
+        carouselEmpty: document.querySelector('.swipe-photo-empty'),
+        aboutMe: document.getElementById('aboutMePills'),
+        lookingFor: document.querySelector('.swipe-looking-pills'),
+        relationshipType: document.querySelector('.swipe-relationship-type'),
+    };
+
+    let swipeDeck = (typeof swipeCandidates !== 'undefined' ? swipeCandidates : []).slice();
+    let swipeCardIndex = 0;
+
+    function currentCandidate() {
+        return swipeDeck[swipeCardIndex] || null;
+    }
+
+    function renderCarousel(c) {
+        if (!el.carousel) return;
+        const inner = el.carousel.querySelector('.carousel-inner');
+        const indicators = el.carousel.querySelector('.carousel-indicators');
+
+        if (typeof bootstrap !== 'undefined') {
+            const existing = bootstrap.Carousel.getInstance(el.carousel);
+            if (existing) existing.dispose();
+        }
+
+        inner.innerHTML = '';
+        indicators.innerHTML = '';
+
+        const photos = [];
+        if (c.primary_photo) photos.push(c.primary_photo);
+        if (Array.isArray(c.photos)) photos.push(...c.photos);
+
+        if (photos.length === 0) {
+            el.carousel.classList.add('d-none');
+            if (el.carouselEmpty) {
+                el.carouselEmpty.classList.remove('d-none');
+                el.carouselEmpty.classList.add('d-flex');
+            }
+            return;
+        }
+
+        el.carousel.classList.remove('d-none');
+        if (el.carouselEmpty) {
+            el.carouselEmpty.classList.add('d-none');
+            el.carouselEmpty.classList.remove('d-flex');
+        }
+
+        photos.forEach((p, i) => {
+            const item = document.createElement('div');
+            item.className = 'carousel-item' + (i === 0 ? ' active' : '');
+            const img = document.createElement('img');
+            img.src = p.photo_url;
+            img.className = 'd-block w-100 h-100 object-fit-cover swipe-photo-img';
+            img.alt = '';
+            item.appendChild(img);
+            inner.appendChild(item);
+
+            const indicator = document.createElement('button');
+            indicator.type = 'button';
+            indicator.dataset.bsTarget = '#swipePhotoCarousel';
+            indicator.dataset.bsSlideTo = String(i);
+            indicator.setAttribute('aria-label', 'Slide ' + (i + 1));
+            if (i === 0) {
+                indicator.className = 'active';
+                indicator.setAttribute('aria-current', 'true');
+            }
+            indicators.appendChild(indicator);
+        });
+    }
+
+    function clearPills(container) {
+        container.querySelectorAll('.swipe-pill').forEach(p => p.remove());
+    }
+
+    function swipeRender() {
+        const c = currentCandidate();
+        if (!c) {
+            el.container.classList.add('d-none');
+            el.empty.classList.remove('d-none');
+            return;
+        }
+        el.container.classList.remove('d-none');
+        el.empty.classList.add('d-none');
+
+        if (c.primary_photo) {
+            el.avatar.src = c.primary_photo.photo_url;
+        } else {
+            el.avatar.removeAttribute('src');
+        }
+
+        el.nameAge.textContent = `${c.first_name}, ${c.age}`;
+
+        const locParts = [];
+        if (c.general_location) locParts.push(c.general_location);
+        locParts.push(`${c.distance_km} km away`);
+        el.location.textContent = locParts.join(' · ');
+
+        el.gender.textContent = c.gender ? `Gender: ${GENDER_LABELS[c.gender] || c.gender}` : '';
+        el.bio.textContent = c.user_bio || '';
+
+        renderCarousel(c);
+
+        clearPills(el.aboutMe);
+        (c.about_me_tags || []).forEach(tag => {
+            const pill = document.createElement('span');
+            pill.className = 'badge rounded-pill swipe-pill swipe-pill--orange w-100 fw-semibold mb-2';
+            pill.textContent = tag;
+            el.aboutMe.appendChild(pill);
+        });
+
+        el.lookingFor.innerHTML = '';
+        (c.looking_for_tags || []).forEach(tag => {
+            const pill = document.createElement('span');
+            pill.className = 'badge rounded-pill swipe-looking-pill fw-semibold';
+            pill.textContent = tag;
+            el.lookingFor.appendChild(pill);
+        });
+
+        el.relationshipType.textContent = RELATIONSHIP_LABELS[c.relationship_type] || '';
+    }
+
+    let isSwipeInFlight = false;
+
+    function swipeAction(type) {
+        if (isSwipeInFlight) return;
+        const c = currentCandidate();
+        if (!c) return;
+
+        isSwipeInFlight = true;
+        const skipBtn = document.querySelector('.swipe-btn--skip');
+        const matchBtn = document.querySelector('.swipe-btn--match');
+        if (skipBtn) skipBtn.disabled = true;
+        if (matchBtn) matchBtn.disabled = true;
+
+        const formData = new FormData();
+        formData.append('action', 'swipe');
+        formData.append('liked_id', c.user_id);
+        formData.append('swipe_type', type);
+
+        fetch(window.location.pathname, { method: 'POST', body: formData })
+            .then(res => res.text().then(text => {
+                if (!res.ok) throw new Error('Server ' + res.status + ': ' + text.substring(0, 200));
+                try { return JSON.parse(text); } catch { throw new Error('Invalid response: ' + text.substring(0, 200)); }
+            }))
+            .then(data => {
+                if (!data.success) {
+                    alert('Swipe failed: ' + (data.error || 'Unknown error'));
+                    return;
+                }
+                swipeCardIndex++;
+                swipeRender();
+            })
+            .catch(err => alert('Error: ' + err.message))
+            .finally(() => {
+                isSwipeInFlight = false;
+                if (skipBtn) skipBtn.disabled = false;
+                if (matchBtn) matchBtn.disabled = false;
+            });
+    }
+
+    document.querySelector('.swipe-btn--skip').addEventListener('click', () => swipeAction('dislike'));
+    document.querySelector('.swipe-btn--match').addEventListener('click', () => swipeAction('like'));
+
+    swipeRender();
 </script>
-<script src="swipe.js"></script>
 <?php endif; ?>
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>
