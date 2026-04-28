@@ -102,9 +102,6 @@
 
     /* Left column of tags card — 3-column grid of adjective pills - Bootstrap card + brand overrides */
     .profile-tags-sidebar {
-        border: 0;
-        border-radius: var(--profile-card-radius);
-        padding: 24px 20px;
         box-shadow: var(--profile-card-shadow);
         display: grid;
         grid-template-columns: repeat(3, 1fr);
@@ -116,20 +113,15 @@
     .profile-tags-title {
         font-family: var(--wm-font-family);
         font-size: 16px;
-        font-weight: 700;
         color: #1A1A1A;
-        margin: 0;
         grid-column: 1 / -1;
-        text-align: center;
     }
 
     /* Tag pills (About Me) - Bootstrap badge + brand overrides */
     .profile-pill {
-        width: 100%;
         max-width: 120px;
         padding: 8px 14px;
         font-size: 13px;
-        font-weight: 600;
         transition: transform var(--profile-transition), box-shadow var(--profile-transition);
     }
 
@@ -140,16 +132,6 @@
 
     .profile-pill--pink { background: var(--profile-pink); color: #FFFFFF; }
     .profile-pill--orange { background: var(--profile-orange); color: #FFFFFF; }
-
-    /* Right column of tags card — "What My Friends Say" card - Bootstrap card + brand overrides */
-    .profile-friends-card {
-        border: 0;
-        border-radius: var(--profile-card-radius);
-        padding: 28px 30px;
-        box-shadow: var(--profile-card-shadow);
-        position: relative;
-        overflow: hidden;
-    }
 
     /* Decorative dashed inset border on friends card */
     .profile-friends-card::before {
@@ -178,12 +160,7 @@
     .profile-friends-title {
         font-family: var(--wm-font-family);
         font-size: 18px;
-        font-weight: 700;
         color: #1A1A1A;
-        margin: 0 0 18px;
-        text-align: center;
-        position: relative;
-        z-index: 1;
     }
 
     /* Each subsection inside the friends card (dating %, red flags, quotes) */
@@ -239,17 +216,6 @@
     .profile-friend-quote::before {
         content: "⭐";
         flex-shrink: 0;
-    }
-
-    /* ========== FRIEND COMMENTS SECTION STYLES ========== */
-
-    /* Main container for the comments section */
-    .friends-comments-section {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        position: relative;
-        z-index: 1;
     }
 
     /* Scrollable container for comments list */
@@ -578,4 +544,3 @@
     .profile-friends-card {
         animation-delay: 0.16s;
     }
-

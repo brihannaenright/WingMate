@@ -29,7 +29,7 @@ function renderCarousel() {
         item.className = 'carousel-item' + (i === 0 ? ' active' : '');
         const img = document.createElement('img');
         img.src = p.photo_url;
-        img.className = 'd-block w-100 profile-photo-img';
+        img.className = 'd-block w-100 h-100 object-fit-cover profile-photo-img';
         img.alt = '';
         item.appendChild(img);
         inner.appendChild(item);
