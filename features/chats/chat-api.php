@@ -148,7 +148,9 @@ if ($action === 'send_message' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Prevent phone number patterns (requirement) - Irish phone numbers with +353, 0, or 353 prefix
-    if (preg_match('/(\+353|0|353)[\s\-\.]?\(?\d{1,4}\)?[\s\-\.]?\d{3,4}[\s\-\.]?\d{3,4}|[89]\d{7}\b/', $content)) {
+    // Country-code prefix tolerates optional parens/whitespace e.g. +353, +(353), ( +353 ), 00 353
+    // Bare-mobile fallback catches 9-digit numbers (8X...) with or without separators
+    if (preg_match('/(?:\(?\s*\+\s*\(?\s*353\s*\)?\s*\)?|00\s*353|353|0)[\s\-\.]?\(?\d{1,4}\)?[\s\-\.]?\d{3,4}[\s\-\.]?\d{3,4}|\b[89]\d{1,2}[\s\-\.]?\d{3,4}[\s\-\.]?\d{3,4}\b/', $content)) {
         http_response_code(400);
         echo json_encode(['error' => 'Phone numbers are not allowed']);
         exit;

@@ -40,6 +40,25 @@ function wingmate_start_secure_session(): void
         session_regenerate_id(true);
         $_SESSION['last_regenerated_at'] = time();
     }
+
+    // Enforce account status mid-session: immediately kick banned/suspended users
+    // even if they were already logged in when the admin took action.
+    if (!empty($_SESSION['user_id'])) {
+        global $conn;
+        if (isset($conn) && $conn instanceof mysqli) {
+            $stmt = $conn->prepare("SELECT account_status FROM Users WHERE user_id = ?");
+            $stmt->bind_param('i', $_SESSION['user_id']);
+            $stmt->execute();
+            $row = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+
+            if (!$row || $row['account_status'] !== 'active') {
+                wingmate_destroy_session();
+                header('Location: /features/auth/login.php?reason=account_blocked');
+                exit;
+            }
+        }
+    }
 }
 
 function wingmate_get_csrf_token(): string
